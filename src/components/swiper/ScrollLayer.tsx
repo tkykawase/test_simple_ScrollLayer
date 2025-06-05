@@ -1,5 +1,5 @@
 // src/components/swiper/ScrollLayer.tsx
-// 透明操作レイヤー（スクロール操作専用・高精度タッチ判定・外部コントローラー対応・慣性なし版）
+// 透明操作レイヤー（QuadLayerController対応・慣性なし版）
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 
@@ -8,8 +8,8 @@ interface ScrollLayerProps {
   onImageClick: (x: number, y: number) => void; // 画像クリック座標を通知
   controller?: {
     registerScrollLayer: (element: HTMLElement) => void;
-    unregisterScrollLayer: (element: HTMLElement) => void;
-  }; // 外部コントローラー（オプション）
+    unregisterScrollLayer: () => void;
+  }; // QuadLayerController（オプション）
 }
 
 interface TouchPoint {
@@ -36,17 +36,15 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   const wheelVelocityRef = useRef(0);
   const isWheelScrollingRef = useRef(false);
 
-  // コントローラーへの登録
+  // QuadLayerControllerへの登録
   useEffect(() => {
     if (controller && containerRef.current) {
       controller.registerScrollLayer(containerRef.current);
-      console.log('✅ ScrollLayer registered to controller');
+      console.log('✅ ScrollLayer registered to QuadLayerController');
       
       return () => {
-        if (containerRef.current) {
-          controller.unregisterScrollLayer(containerRef.current);
-          console.log('❌ ScrollLayer unregistered from controller');
-        }
+        controller.unregisterScrollLayer();
+        console.log('❌ ScrollLayer unregistered from QuadLayerController');
       };
     }
   }, [controller]);
@@ -73,9 +71,14 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     const currentScrollTop = target.scrollTop;
     const deltaY = currentScrollTop - lastScrollTopRef.current;
     
-    // 移動量を親に通知
+    // 移動量を親に通知（QuadLayerController経由で同期）
     if (deltaY !== 0) {
       onScroll(deltaY);
+      console.log('📜 ScrollLayer scroll event', {
+        deltaY,
+        currentScrollTop,
+        timestamp: Date.now()
+      });
     }
     
     lastScrollTopRef.current = currentScrollTop;
@@ -94,7 +97,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     container.scrollTop = newScrollTop;
     lastScrollTopRef.current = newScrollTop;
     
-    // 同期処理
+    // 同期処理（QuadLayerController経由）
     if (scrollAmount !== 0) {
       onScroll(scrollAmount);
     }
@@ -117,7 +120,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     const isHighSpeed = Math.abs(deltaY) > 150; // 150px以上で高速判定
     
     if (isHighSpeed) {
-      console.log('🚀 High-speed scroll detected:', { deltaY, velocity: deltaY });
+      console.log('🚀 ScrollLayer high-speed scroll detected:', { 
+        deltaY, 
+        velocity: deltaY,
+        timestamp: Date.now()
+      });
       
       // 高速スクロールモード開始（慣性なし）
       wheelVelocityRef.current = deltaY * 0.8; // 初期速度設定
@@ -138,10 +145,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
         onScroll(deltaY);
       }
       
-      console.log('🎡 Normal scroll:', {
+      console.log('🎡 ScrollLayer normal scroll:', {
         wheelDeltaY: deltaY,
         newScrollTop: newScrollTop,
-        actualScrollTop: container.scrollTop
+        actualScrollTop: container.scrollTop,
+        timestamp: Date.now()
       });
     }
     
@@ -155,7 +163,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       if (isWheelScrollingRef.current) {
         isWheelScrollingRef.current = false;
         wheelVelocityRef.current = 0;
-        console.log('⏱️ Wheel timeout - high-speed mode ended');
+        console.log('⏱️ ScrollLayer wheel timeout - high-speed mode ended');
       }
     }, 150);
     
@@ -177,7 +185,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     setTouchHistory([touchPoint]);
     setIsScrolling(false);
     
-    console.log('🟢 Touch start:', touchPoint);
+    console.log('🟢 ScrollLayer touch start:', touchPoint);
   }, []);
 
   // タッチ移動（速度ベース判定）
@@ -203,7 +211,10 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       // 高精度判定: 30px/s以上でスクロール意図と判定
       if (velocity > 30) {
         setIsScrolling(true);
-        console.log('🔄 Scroll detected:', { velocity: velocity.toFixed(1) });
+        console.log('🔄 ScrollLayer scroll detected:', { 
+          velocity: velocity.toFixed(1),
+          timestamp: Date.now()
+        });
       }
       
       return trimmedHistory;
@@ -229,21 +240,22 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       Math.pow(endPoint.y - touchStartRef.current.y, 2)
     );
     
-    console.log('🔍 Touch analysis:', {
+    console.log('🔍 ScrollLayer touch analysis:', {
       velocity: finalVelocity.toFixed(1),
       distance: totalDistance.toFixed(1),
       time: totalTime,
-      isScrolling
+      isScrolling,
+      timestamp: Date.now()
     });
     
     // 高精度クリック判定
     const isClick = !isScrolling && finalVelocity < 50 && totalDistance < 10 && totalTime < 300;
     
     if (isClick) {
-      console.log('🎯 Click detected!');
+      console.log('🎯 ScrollLayer click detected!');
       onImageClick(touchEnd.clientX, touchEnd.clientY);
     } else {
-      console.log('📜 Scroll action confirmed');
+      console.log('📜 ScrollLayer scroll action confirmed');
     }
     
     // リセット
@@ -254,7 +266,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
 
   // マウスクリックハンドラー（デスクトップ用）
   const handleMouseClick = useCallback((e: React.MouseEvent) => {
-    console.log('🖱️ Mouse click detected');
+    console.log('🖱️ ScrollLayer mouse click detected');
     onImageClick(e.clientX, e.clientY);
   }, [onImageClick]);
 
@@ -271,10 +283,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       
       lastScrollTopRef.current = centerPosition;
       
-      console.log('🎯 ScrollLayer initialized', {
+      console.log('🎯 ScrollLayer initialized for QuadController', {
         scrollHeight: container.scrollHeight,
         centerPosition,
-        initialScrollTop: container.scrollTop
+        initialScrollTop: container.scrollTop,
+        timestamp: Date.now()
       });
     }
   }, []);
@@ -287,25 +300,27 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       }
       isWheelScrollingRef.current = false;
       wheelVelocityRef.current = 0;
+      console.log('🧹 ScrollLayer cleanup completed');
     };
   }, []);
 
   return (
-    <div className="relative h-full bg-red-100"> {/* 🔍 背景色を変更してデバッグ */}
+    <div className="relative h-full bg-green-100"> {/* 🔍 背景色を変更してデバッグ */}
       {/* 操作説明 */}
       <div className="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded shadow text-sm">
-        <p className="font-medium">操作レイヤー（高精度・慣性なし）</p>
+        <p className="font-medium">操作レイヤー（QuadController）</p>
         <p className="text-gray-600">タッチ/クリック操作</p>
         <div className="text-xs text-gray-500 mt-1">
           <p>速度判定: {isScrolling ? '📜 スクロール中' : '👆 タッチ待機'}</p>
           <p>🔍 高速スクロール対応（慣性なし）</p>
+          <p>🔄 QuadLayer統合制御</p>
         </div>
       </div>
       
       {/* 透明スクロールエリア */}
       <div
         ref={containerRef}
-        className="h-full overflow-y-auto border-2 border-blue-500" // 🔍 境界を可視化
+        className="h-full overflow-y-auto border-2 border-green-500" // 🔍 境界を可視化
         onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -319,18 +334,17 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       >
         {/* 巨大な透明コンテンツ */}
         <div 
-          className="w-full bg-yellow-100" // 🔍 背景色追加
+          className="w-full bg-orange-50" // 🔍 背景色追加
           style={{ height: '999999px' }}
         >
           {/* 可視化用のガイドライン（デバッグ用） */}
-          <div className="relative"> {/* 🔥 absolute → relative に変更 */}
-            {Array.from({ length: 50 }, (_, i) => ( // 🔍 数を増やして視覚確認
+          <div className="relative">
+            {Array.from({ length: 50 }, (_, i) => (
               <div
                 key={i}
-                className="h-40 border-b-4 border-red-500 flex items-center justify-center text-red-700 font-bold text-2xl" // 🔍 大きく見やすく
-                // 🔥 style={{ top: }} を削除（相対配置で自然に配置）
-              >
-                📍 {i * 160}px
+                className="h-40 border-b-4 border-green-500 flex items-center justify-center text-green-700 font-bold text-2xl"
+                >
+                🎮 {i * 160}px
               </div>
             ))}
           </div>
@@ -339,10 +353,12 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       
       {/* スクロール位置表示（デバッグ用） */}
       <div className="absolute bottom-4 left-4 bg-black/70 text-white p-2 rounded text-xs">
+        <p>ScrollLayer QuadController</p>
         <p>Scroll: {lastScrollTopRef.current.toFixed(0)}px</p>
         <p>Velocity: {touchHistory.length > 1 ? calculateVelocity(touchHistory).toFixed(1) : '0'}px/s</p>
         <p>Status: {isScrolling ? 'Scrolling' : 'Ready'}</p>
         <p>Wheel: {isWheelScrollingRef.current ? 'Fast (No Inertia)' : 'Normal'}</p>
+        <p>Controller: {controller ? 'Connected' : 'Standalone'}</p>
       </div>
     </div>
   );

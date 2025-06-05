@@ -1,5 +1,5 @@
 // src/components/swiper/SimpleSwiper.tsx
-// 外部コントローラー対応版
+// QuadLayerController対応版
 
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,14 +9,14 @@ import type { InfiniteScrollConfig, Project, ProjectImage } from '../../types';
 
 interface SwiperController {
   registerSimpleSwiper: (element: HTMLDivElement) => void;
-  unregisterSimpleSwiper: (element: HTMLDivElement) => void;
+  unregisterSimpleSwiper: () => void;
 }
 
 interface SimpleSwiperProps {
   images: string[];                    // 表示する画像URLの配列
   projects: Project[];                 // プロジェクト情報
   side: 'left' | 'right';             // 左右どちらのスワイパーか
-  controller?: SwiperController;       // 外部コントローラー（オプション）
+  controller?: SwiperController;       // QuadLayerController（オプション）
 }
 
 export const SimpleSwiper = React.memo(function SimpleSwiper({
@@ -28,27 +28,25 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 外部コントローラーへの登録
+  // QuadLayerControllerへの登録
   useEffect(() => {
     if (controller && containerRef.current) {
       controller.registerSimpleSwiper(containerRef.current);
-      console.log('✅ SimpleSwiper registered to controller');
+      console.log('✅ SimpleSwiper registered to QuadLayerController', { side });
       
       return () => {
-        if (containerRef.current) {
-          controller.unregisterSimpleSwiper(containerRef.current);
-          console.log('❌ SimpleSwiper unregistered from controller');
-        }
+        controller.unregisterSimpleSwiper();
+        console.log('❌ SimpleSwiper unregistered from QuadLayerController', { side });
       };
     }
-  }, [controller]);
+  }, [controller, side]);
 
   // 無限スクロール設定（94版の最適化済み設定を統合）
   const infiniteScrollConfig: InfiniteScrollConfig = useMemo(() => ({
     items: (images || []).map((url, index) => ({
-      id: `item-${index}`,
+      id: `item-${side}-${index}`,
       imageUrl: url,
-      title: `Image ${index + 1}`
+      title: `Image ${side} ${index + 1}`
     })),
     maxRenderedItems: 15,    // 94版の最適値
     bufferSize: 8,          // 94版の最適値
@@ -58,7 +56,7 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
     threshold: 0.1,
     enabled: true,
     bidirectional: true     // 双方向無限スクロール
-  }), [images]);
+  }), [images, side]);
 
   // 無限スクロール機能の初期化（統合版フック使用）
   const {
@@ -82,9 +80,14 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
     );
     
     if (project) {
+      console.log('🎯 SimpleSwiper navigation', {
+        side,
+        projectId: project.id,
+        projectTitle: project.title
+      });
       navigate(`/project/${project.id}`);
     }
-  }, [projects, navigate]);
+  }, [projects, navigate, side]);
 
   // 表示用の画像データを準備（94版の改良ロジックを統合）
   const imageElements = useMemo(() => {
@@ -93,17 +96,31 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
     const displayItems = visibleItems.length > 0 
       ? visibleItems 
       : (images || []).map((url, index) => ({ 
-          id: `fallback-${index}`, 
+          id: `fallback-${side}-${index}`, 
           imageUrl: url, 
-          title: `Image ${index + 1}` 
+          title: `Image ${side} ${index + 1}` 
         }));
+
+    console.log('🖼️ SimpleSwiper preparing images', {
+      side,
+      displayItemsCount: displayItems.length,
+      visibleItemsCount: visibleItems.length,
+      originalImagesCount: images.length
+    });
 
     return displayItems.map((item, index) => {
       const project = projects.find(p => 
         p.project_images?.some((img: ProjectImage) => img.image_url === item.imageUrl)
       );
 
-      if (!project) return null;
+      if (!project) {
+        console.warn('⚠️ Project not found for image', {
+          side,
+          imageUrl: item.imageUrl.substring(item.imageUrl.lastIndexOf('/') + 1, item.imageUrl.lastIndexOf('/') + 10),
+          itemId: item.id
+        });
+        return null;
+      }
 
       const isFirstItem = index === 0;
       const isLastItem = index === displayItems.length - 1;
@@ -116,9 +133,19 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
               if (isFirstItem && infiniteScrollConfig.bidirectional) {
                 // 最初の要素を上方向監視（94版の境界要素配置最適化済み）
                 observeElement(el, 'prepend');
+                console.log('🔍 Observing first element for prepend', {
+                  side,
+                  itemId: item.id,
+                  direction: 'prepend'
+                });
               } else if (isLastItem) {
                 // 最後の要素を下方向監視（94版の境界要素配置最適化済み）
                 observeElement(el, 'append');
+                console.log('🔍 Observing last element for append', {
+                  side,
+                  itemId: item.id,
+                  direction: 'append'
+                });
               }
             }
           }}
@@ -132,7 +159,11 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
             loading="lazy"
             decoding="async"
             onError={(e) => {
-              console.error('Image failed to load:', { url: item.imageUrl });
+              console.error('❌ Image failed to load', { 
+                side,
+                url: item.imageUrl,
+                itemId: item.id
+              });
               e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
             }}
           />
@@ -148,13 +179,34 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
                     Project in {project.company_name}
                   </p>
                 )}
+                {/* QuadLayer情報表示 */}
+                <p className="text-xs text-white/50 mt-1">
+                  Side: {side} | ID: {item.id.split('-')[0]}
+                </p>
               </div>
             </div>
           </div>
         </div>
       );
     }).filter(Boolean);
-  }, [visibleItems, observeElement, infiniteScrollConfig.bidirectional, images, projects, handleImageClick]);
+  }, [visibleItems, observeElement, infiniteScrollConfig.bidirectional, images, projects, handleImageClick, side]);
+
+  // QuadLayer統計情報をログ出力
+  useEffect(() => {
+    if (visibleItems.length > 0) {
+      console.log('📊 SimpleSwiper QuadLayer statistics', {
+        side,
+        totalVisibleItems: visibleItems.length,
+        totalOriginalImages: images.length,
+        isLoading: isLoading,
+        containerElement: containerRef.current?.id || 'unknown',
+        cycleInfo: {
+          expectedCycles: Math.ceil(visibleItems.length / images.length),
+          remainder: visibleItems.length % images.length
+        }
+      });
+    }
+  }, [visibleItems.length, images.length, side, isLoading]);
 
   return (
     <div className="relative h-screen">
@@ -171,6 +223,14 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
             </div>
           )}
         </div>
+      </div>
+      
+      {/* QuadLayer情報表示（デバッグ用） */}
+      <div className="absolute bottom-20 left-2 bg-black/70 text-white p-2 rounded text-xs">
+        <p>SimpleSwiper {side}</p>
+        <p>Images: {visibleItems.length}</p>
+        <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
+        <p>Controller: {controller ? 'Connected' : 'Standalone'}</p>
       </div>
     </div>
   );
