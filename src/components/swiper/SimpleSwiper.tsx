@@ -1,5 +1,5 @@
 // src/components/swiper/SimpleSwiper.tsx
-// QuadLayerController対応版
+// DualLayerControllerV2対応版（重ね合わせ下層・クリック有効）
 
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ interface SimpleSwiperProps {
   images: string[];                    // 表示する画像URLの配列
   projects: Project[];                 // プロジェクト情報
   side: 'left' | 'right';             // 左右どちらのスワイパーか
-  controller?: SwiperController;       // QuadLayerController（オプション）
+  controller?: SwiperController;       // DualLayerControllerV2（オプション）
 }
 
 export const SimpleSwiper = React.memo(function SimpleSwiper({
@@ -28,15 +28,19 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // QuadLayerControllerへの登録
+  // DualLayerControllerV2への登録
   useEffect(() => {
     if (controller && containerRef.current) {
       controller.registerSimpleSwiper(containerRef.current);
-      console.log('✅ SimpleSwiper registered to QuadLayerController', { side });
+      console.log('✅ SimpleSwiper registered to DualLayerControllerV2', { 
+        side,
+        mode: 'overlay-bottom-layer',
+        clickEnabled: true
+      });
       
       return () => {
         controller.unregisterSimpleSwiper();
-        console.log('❌ SimpleSwiper unregistered from QuadLayerController', { side });
+        console.log('❌ SimpleSwiper unregistered from DualLayerControllerV2', { side });
       };
     }
   }, [controller, side]);
@@ -73,23 +77,25 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
     }
   }, [infiniteContainerRef]);
 
-  // 画像クリック時のナビゲーション（94版から統合）
+  // 🎯 画像クリック時のナビゲーション（重ね合わせ対応・クリック貫通受け取り）
   const handleImageClick = useCallback((imageUrl: string) => {
     const project = projects.find(p => 
       p.project_images?.some((img: ProjectImage) => img.image_url === imageUrl)
     );
     
     if (project) {
-      console.log('🎯 SimpleSwiper navigation', {
+      console.log('🎯 SimpleSwiper navigation (from click-through)', {
         side,
         projectId: project.id,
-        projectTitle: project.title
+        projectTitle: project.title,
+        overlayMode: true,
+        clickSource: 'bottom-layer'
       });
       navigate(`/project/${project.id}`);
     }
   }, [projects, navigate, side]);
 
-  // 表示用の画像データを準備（94版の改良ロジックを統合）
+  // 表示用の画像データを準備（重ね合わせ対応版）
   const imageElements = useMemo(() => {
     // 無限スクロールが有効な場合は visibleItems を使用
     // そうでなければ既存の images を使用
@@ -101,11 +107,13 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
           title: `Image ${side} ${index + 1}` 
         }));
 
-    console.log('🖼️ SimpleSwiper preparing images', {
+    console.log('🖼️ SimpleSwiper preparing images (overlay bottom layer)', {
       side,
       displayItemsCount: displayItems.length,
       visibleItemsCount: visibleItems.length,
-      originalImagesCount: images.length
+      originalImagesCount: images.length,
+      overlayMode: true,
+      clickEnabled: true
     });
 
     return displayItems.map((item, index) => {
@@ -117,7 +125,8 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
         console.warn('⚠️ Project not found for image', {
           side,
           imageUrl: item.imageUrl.substring(item.imageUrl.lastIndexOf('/') + 1, item.imageUrl.lastIndexOf('/') + 10),
-          itemId: item.id
+          itemId: item.id,
+          overlayMode: true
         });
         return null;
       }
@@ -133,7 +142,7 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
               if (isFirstItem && infiniteScrollConfig.bidirectional) {
                 // 最初の要素を上方向監視（94版の境界要素配置最適化済み）
                 observeElement(el, 'prepend');
-                console.log('🔍 Observing first element for prepend', {
+                console.log('🔍 Observing first element for prepend (overlay mode)', {
                   side,
                   itemId: item.id,
                   direction: 'prepend'
@@ -141,7 +150,7 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
               } else if (isLastItem) {
                 // 最後の要素を下方向監視（94版の境界要素配置最適化済み）
                 observeElement(el, 'append');
-                console.log('🔍 Observing last element for append', {
+                console.log('🔍 Observing last element for append (overlay mode)', {
                   side,
                   itemId: item.id,
                   direction: 'append'
@@ -151,6 +160,10 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
           }}
           className="relative cursor-pointer"
           onClick={() => handleImageClick(item.imageUrl)}
+          style={{
+            // 🎯 重要: クリックを確実に受け取るためのpointer-events設定
+            pointerEvents: 'auto'
+          }}
         >
           <img
             src={getImageUrl(item.imageUrl, { width: 800, quality: 80 })}
@@ -158,18 +171,29 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
             className="w-full block select-none"
             loading="lazy"
             decoding="async"
+            style={{
+              // 🎯 画像自体もクリック可能に
+              pointerEvents: 'auto'
+            }}
             onError={(e) => {
-              console.error('❌ Image failed to load', { 
+              console.error('❌ Image failed to load (overlay mode)', { 
                 side,
                 url: item.imageUrl,
-                itemId: item.id
+                itemId: item.id,
+                overlayMode: true
               });
-              e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
+              e.currentTarget.src = 'https://picsum.photos/800/600?text=Error';
             }}
           />
           
-          {/* ホバー時の情報オーバーレイ（94版から統合） */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
+          {/* ホバー時の情報オーバーレイ（重ね合わせ対応版） */}
+          <div 
+            className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"
+            style={{
+              // オーバーレイもクリック可能に
+              pointerEvents: 'auto'
+            }}
+          >
             <div className="absolute inset-0 flex flex-col justify-end p-4">
               <div className="text-white">
                 <h3 className="text-lg font-medium">{project.title}</h3>
@@ -179,9 +203,9 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
                     Project in {project.company_name}
                   </p>
                 )}
-                {/* QuadLayer情報表示 */}
+                {/* 重ね合わせモード情報表示 */}
                 <p className="text-xs text-white/50 mt-1">
-                  Side: {side} | ID: {item.id.split('-')[0]}
+                  Side: {side} | Mode: Overlay | Click: Enabled
                 </p>
               </div>
             </div>
@@ -191,15 +215,18 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
     }).filter(Boolean);
   }, [visibleItems, observeElement, infiniteScrollConfig.bidirectional, images, projects, handleImageClick, side]);
 
-  // QuadLayer統計情報をログ出力
+  // 重ね合わせモード統計情報をログ出力
   useEffect(() => {
     if (visibleItems.length > 0) {
-      console.log('📊 SimpleSwiper QuadLayer statistics', {
+      console.log('📊 SimpleSwiper overlay statistics', {
         side,
         totalVisibleItems: visibleItems.length,
         totalOriginalImages: images.length,
         isLoading: isLoading,
         containerElement: containerRef.current?.id || 'unknown',
+        overlayMode: true,
+        layerPosition: 'bottom',
+        clickEnabled: true,
         cycleInfo: {
           expectedCycles: Math.ceil(visibleItems.length / images.length),
           remainder: visibleItems.length % images.length
@@ -214,23 +241,35 @@ export const SimpleSwiper = React.memo(function SimpleSwiper({
         ref={containerRef}
         className="h-full overflow-y-auto bg-black no-scrollbar"
         id={`simple-swiper-${side}`}
+        style={{
+          // 🎯 重要: 下層として確実にクリックを受け取る
+          pointerEvents: 'auto'
+        }}
       >
         <div className="w-full">
           {imageElements}
           {isLoading && (
-            <div className="flex justify-center py-4">
+            <div 
+              className="flex justify-center py-4"
+              style={{ pointerEvents: 'none' }} // ローディング表示はクリック無効
+            >
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </div>
       </div>
       
-      {/* QuadLayer情報表示（デバッグ用） */}
-      <div className="absolute bottom-20 left-2 bg-black/70 text-white p-2 rounded text-xs">
-        <p>SimpleSwiper {side}</p>
+      {/* 重ね合わせモード情報表示（デバッグ用） */}
+      <div 
+        className="absolute bottom-20 left-2 bg-black/70 text-white p-2 rounded text-xs"
+        style={{ pointerEvents: 'auto' }} // デバッグ表示はクリック可能
+      >
+        <p>SimpleSwiper {side} (Overlay)</p>
+        <p>Layer: Bottom (z-0)</p>
         <p>Images: {visibleItems.length}</p>
         <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-        <p>Controller: {controller ? 'Connected' : 'Standalone'}</p>
+        <p>Click: Enabled (Click-Through)</p>
+        <p>Controller: {controller ? 'V2 Connected' : 'Standalone'}</p>
       </div>
     </div>
   );

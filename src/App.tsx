@@ -1,12 +1,14 @@
 // src/App.tsx
-import { Routes, Route } from "react-router-dom";
-import { HomePage } from "./pages/home";
-function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-    </Routes>
-  );
-}
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Home2 } from './pages/home2';
 
-export default App;
+export const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home2 />} />
+      </Routes>
+    </Router>
+  );
+};

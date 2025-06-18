@@ -1,15 +1,15 @@
 // src/components/swiper/ScrollLayer.tsx
-// 透明操作レイヤー（QuadLayerController対応・慣性なし版）
+// 透明操作レイヤー（pointer-events制御・クリック貫通版）
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 
 interface ScrollLayerProps {
   onScroll: (deltaY: number) => void; // 移動量を親に通知
-  onImageClick: (x: number, y: number) => void; // 画像クリック座標を通知
+  onImageClick?: (x: number, y: number) => void; // 画像クリック座標を通知（使用されない・後方互換性のため残存）
   controller?: {
     registerScrollLayer: (element: HTMLElement) => void;
     unregisterScrollLayer: () => void;
-  }; // QuadLayerController（オプション）
+  }; // DualLayerControllerV2（オプション）
 }
 
 interface TouchPoint {
@@ -20,7 +20,6 @@ interface TouchPoint {
 
 export const ScrollLayer = React.memo(function ScrollLayer({
   onScroll,
-  onImageClick,
   controller
 }: ScrollLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,15 +35,15 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   const wheelVelocityRef = useRef(0);
   const isWheelScrollingRef = useRef(false);
 
-  // QuadLayerControllerへの登録
+  // DualLayerControllerV2への登録
   useEffect(() => {
     if (controller && containerRef.current) {
       controller.registerScrollLayer(containerRef.current);
-      console.log('✅ ScrollLayer registered to QuadLayerController');
+      console.log('✅ ScrollLayer registered to DualLayerControllerV2 (pointer-events mode)');
       
       return () => {
         controller.unregisterScrollLayer();
-        console.log('❌ ScrollLayer unregistered from QuadLayerController');
+        console.log('❌ ScrollLayer unregistered from DualLayerControllerV2');
       };
     }
   }, [controller]);
@@ -71,12 +70,13 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     const currentScrollTop = target.scrollTop;
     const deltaY = currentScrollTop - lastScrollTopRef.current;
     
-    // 移動量を親に通知（QuadLayerController経由で同期）
+    // 移動量を親に通知（DualLayerControllerV2経由で同期）
     if (deltaY !== 0) {
       onScroll(deltaY);
-      console.log('📜 ScrollLayer scroll event', {
+      console.log('📜 ScrollLayer scroll event (pointer-events mode)', {
         deltaY,
         currentScrollTop,
+        clickThrough: true,
         timestamp: Date.now()
       });
     }
@@ -97,7 +97,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     container.scrollTop = newScrollTop;
     lastScrollTopRef.current = newScrollTop;
     
-    // 同期処理（QuadLayerController経由）
+    // 同期処理（DualLayerControllerV2経由）
     if (scrollAmount !== 0) {
       onScroll(scrollAmount);
     }
@@ -105,7 +105,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     // 🔥 慣性なし：即座停止
     isWheelScrollingRef.current = false;
     wheelVelocityRef.current = 0;
-    console.log('🛑 High-speed scroll stopped (no inertia)');
+    console.log('🛑 High-speed scroll stopped (no inertia, pointer-events mode)');
     return;
   }, [onScroll]);
 
@@ -120,9 +120,10 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     const isHighSpeed = Math.abs(deltaY) > 150; // 150px以上で高速判定
     
     if (isHighSpeed) {
-      console.log('🚀 ScrollLayer high-speed scroll detected:', { 
+      console.log('🚀 ScrollLayer high-speed scroll detected (pointer-events mode):', { 
         deltaY, 
         velocity: deltaY,
+        clickThrough: true,
         timestamp: Date.now()
       });
       
@@ -145,10 +146,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
         onScroll(deltaY);
       }
       
-      console.log('🎡 ScrollLayer normal scroll:', {
+      console.log('🎡 ScrollLayer normal scroll (pointer-events mode):', {
         wheelDeltaY: deltaY,
         newScrollTop: newScrollTop,
         actualScrollTop: container.scrollTop,
+        clickThrough: true,
         timestamp: Date.now()
       });
     }
@@ -163,7 +165,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       if (isWheelScrollingRef.current) {
         isWheelScrollingRef.current = false;
         wheelVelocityRef.current = 0;
-        console.log('⏱️ ScrollLayer wheel timeout - high-speed mode ended');
+        console.log('⏱️ ScrollLayer wheel timeout - high-speed mode ended (pointer-events mode)');
       }
     }, 150);
     
@@ -185,7 +187,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     setTouchHistory([touchPoint]);
     setIsScrolling(false);
     
-    console.log('🟢 ScrollLayer touch start:', touchPoint);
+    console.log('🟢 ScrollLayer touch start (pointer-events mode):', touchPoint);
   }, []);
 
   // タッチ移動（速度ベース判定）
@@ -211,8 +213,9 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       // 高精度判定: 30px/s以上でスクロール意図と判定
       if (velocity > 30) {
         setIsScrolling(true);
-        console.log('🔄 ScrollLayer scroll detected:', { 
+        console.log('🔄 ScrollLayer scroll detected (pointer-events mode):', { 
           velocity: velocity.toFixed(1),
+          clickThrough: true,
           timestamp: Date.now()
         });
       }
@@ -221,7 +224,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     });
   }, [calculateVelocity]);
 
-  // タッチ終了（最終判定）
+  // タッチ終了（最終判定） - pointer-eventsにより、クリックは下層に貫通
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!touchStartRef.current) return;
     
@@ -240,35 +243,30 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       Math.pow(endPoint.y - touchStartRef.current.y, 2)
     );
     
-    console.log('🔍 ScrollLayer touch analysis:', {
+    console.log('🔍 ScrollLayer touch analysis (pointer-events mode):', {
       velocity: finalVelocity.toFixed(1),
       distance: totalDistance.toFixed(1),
       time: totalTime,
       isScrolling,
+      clickThrough: true,
       timestamp: Date.now()
     });
     
-    // 高精度クリック判定
+    // 高精度クリック判定（ただし、pointer-eventsにより下層に貫通）
     const isClick = !isScrolling && finalVelocity < 50 && totalDistance < 10 && totalTime < 300;
     
     if (isClick) {
-      console.log('🎯 ScrollLayer click detected!');
-      onImageClick(touchEnd.clientX, touchEnd.clientY);
+      console.log('🎯 ScrollLayer click detected (will pass through to lower layer)');
+      // pointer-eventsにより自動的に下層に貫通するため、処理なし
     } else {
-      console.log('📜 ScrollLayer scroll action confirmed');
+      console.log('📜 ScrollLayer scroll action confirmed (pointer-events mode)');
     }
     
     // リセット
     touchStartRef.current = null;
     setTouchHistory([]);
     setIsScrolling(false);
-  }, [touchHistory, isScrolling, calculateVelocity, onImageClick]);
-
-  // マウスクリックハンドラー（デスクトップ用）
-  const handleMouseClick = useCallback((e: React.MouseEvent) => {
-    console.log('🖱️ ScrollLayer mouse click detected');
-    onImageClick(e.clientX, e.clientY);
-  }, [onImageClick]);
+  }, [touchHistory, isScrolling, calculateVelocity]);
 
   // 初期スクロール位置を中央に設定
   useEffect(() => {
@@ -283,10 +281,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       
       lastScrollTopRef.current = centerPosition;
       
-      console.log('🎯 ScrollLayer initialized for QuadController', {
+      console.log('🎯 ScrollLayer initialized for DualLayerControllerV2 (pointer-events mode)', {
         scrollHeight: container.scrollHeight,
         centerPosition,
         initialScrollTop: container.scrollTop,
+        clickThrough: true,
         timestamp: Date.now()
       });
     }
@@ -300,65 +299,72 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       }
       isWheelScrollingRef.current = false;
       wheelVelocityRef.current = 0;
-      console.log('🧹 ScrollLayer cleanup completed');
+      console.log('🧹 ScrollLayer cleanup completed (pointer-events mode)');
     };
   }, []);
 
   return (
-    <div className="relative h-full bg-green-100"> {/* 🔍 背景色を変更してデバッグ */}
+    <div className="relative h-full">
       {/* 操作説明 */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded shadow text-sm">
-        <p className="font-medium">操作レイヤー（QuadController）</p>
-        <p className="text-gray-600">タッチ/クリック操作</p>
+      <div className="absolute top-4 left-4 z-30 bg-white/90 p-2 rounded shadow text-sm pointer-events-auto">
+        <p className="font-medium">操作レイヤー（貫通モード）</p>
+        <p className="text-gray-600">スクロール専用</p>
         <div className="text-xs text-gray-500 mt-1">
-          <p>速度判定: {isScrolling ? '📜 スクロール中' : '👆 タッチ待機'}</p>
+          <p>速度判定: {isScrolling ? '📜 スクロール中' : '👆 待機'}</p>
           <p>🔍 高速スクロール対応（慣性なし）</p>
-          <p>🔄 QuadLayer統合制御</p>
+          <p>🎯 クリック貫通: 有効</p>
         </div>
       </div>
       
-      {/* 透明スクロールエリア */}
+      {/* 🔥 透明スクロールエリア（pointer-events制御） */}
       <div
         ref={containerRef}
-        className="h-full overflow-y-auto border-2 border-green-500" // 🔍 境界を可視化
+        className="h-full overflow-y-auto"
         onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onClick={handleMouseClick}
-        onWheelCapture={handleWheelEvent} // 🔥 強化版ホイールハンドラー（慣性なし）
+        onWheelCapture={handleWheelEvent}
         style={{
+          // 🎯 重要: pointer-events制御でクリック貫通を実現
+          pointerEvents: 'auto', // コンテナ自体はイベント受け取り
           // 巨大な仮想高さで無限スクロール感を演出
           '--scroll-content-height': '999999px',
         } as React.CSSProperties}
       >
-        {/* 巨大な透明コンテンツ */}
+        {/* 🔥 巨大な透明コンテンツ（pointer-events: none でクリック貫通） */}
         <div 
-          className="w-full bg-orange-50" // 🔍 背景色追加
-          style={{ height: '999999px' }}
+          className="w-full"
+          style={{ 
+            height: '999999px',
+            pointerEvents: 'none', // 🎯 重要: 内容のクリックを貫通
+            background: 'transparent' // 完全透明
+          }}
         >
-          {/* 可視化用のガイドライン（デバッグ用） */}
+          {/* 可視化用のガイドライン（デバッグ用・透明） */}
           <div className="relative">
-            {Array.from({ length: 50 }, (_, i) => (
+            {Array.from({ length: 20 }, (_, i) => (
               <div
                 key={i}
-                className="h-40 border-b-4 border-green-500 flex items-center justify-center text-green-700 font-bold text-2xl"
-                >
-                🎮 {i * 160}px
+                className="h-40 border-b border-yellow-300/30 flex items-center justify-center text-yellow-600/50 font-medium text-lg"
+                style={{ pointerEvents: 'none' }} // クリック貫通
+              >
+                ⚡ {i * 160}px (透明)
               </div>
             ))}
           </div>
         </div>
       </div>
       
-      {/* スクロール位置表示（デバッグ用） */}
-      <div className="absolute bottom-4 left-4 bg-black/70 text-white p-2 rounded text-xs">
-        <p>ScrollLayer QuadController</p>
+      {/* スクロール位置表示（デバッグ用・操作可能） */}
+      <div className="absolute bottom-4 left-4 bg-black/70 text-white p-2 rounded text-xs pointer-events-auto">
+        <p>ScrollLayer (Pointer-Events Mode)</p>
         <p>Scroll: {lastScrollTopRef.current.toFixed(0)}px</p>
         <p>Velocity: {touchHistory.length > 1 ? calculateVelocity(touchHistory).toFixed(1) : '0'}px/s</p>
         <p>Status: {isScrolling ? 'Scrolling' : 'Ready'}</p>
         <p>Wheel: {isWheelScrollingRef.current ? 'Fast (No Inertia)' : 'Normal'}</p>
-        <p>Controller: {controller ? 'Connected' : 'Standalone'}</p>
+        <p>Click-Through: Enabled</p>
+        <p>Controller: {controller ? 'V2 Connected' : 'Standalone'}</p>
       </div>
     </div>
   );
