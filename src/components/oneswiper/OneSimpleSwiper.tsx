@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSwiperSteps } from './useSwiperSteps';
+import { useOneLayerController } from './useOneLayerController';
+import { ScrollLayer } from './ScrollLayer';
 
 interface OneSimpleSwiperProps {
   images: string[];
@@ -8,6 +10,44 @@ interface OneSimpleSwiperProps {
 
 export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) => {
   const [state, actions] = useSwiperSteps();
+  const { contentRef, handleScrollLayerMove, scrollToCenter } = useOneLayerController();
+  const isCenteredRef = useRef(false);
+
+  // ログ出力用のヘルパー関数
+  const logDebug = (message: string, data?: Record<string, unknown>) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(message, data);
+    }
+  };
+
+  // 画像クリック/タッチ処理
+  const handleImageClick = (setIndex: number, imageIndex: number, src: string) => {
+    const imageName = src.split('/').pop() || 'unknown';
+    logDebug('🎯 画像クリック/タッチ', {
+      set: setIndex,
+      image: imageIndex + 1,
+      imageName: imageName,
+      fullSrc: src,
+      currentStep: state.currentStep,
+      setHeight: state.setHeight
+    });
+    
+    // アラートで画像名を表示（テスト用）
+    alert(`クリックされた画像: ${imageName}\nセット: ${setIndex}, 画像: ${imageIndex + 1}`);
+    
+    // ここで画像クリックの具体的な処理を実装
+    // 例: モーダル表示、詳細ページ遷移、等
+  };
+
+  // デバッグ用：クリックイベントの発火確認
+  const handleDebugClick = (setIndex: number, imageIndex: number, src: string) => {
+    logDebug('🔍 デバッグ: クリックイベント発火', {
+      set: setIndex,
+      image: imageIndex + 1,
+      src: src.split('/').pop()
+    });
+    handleImageClick(setIndex, imageIndex, src);
+  };
 
   // 初期化トリガー
   useEffect(() => {
@@ -36,6 +76,18 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
       actions.enableStep4();
     }
   }, [state.currentStep, state.setHeight, actions]);
+
+  // Step 完了後: コンテンツを中央に配置
+  useEffect(() => {
+    if (state.currentStep === 'completed' && !isCenteredRef.current) {
+      // DOMの更新が完了した後に中央配置を実行
+      setTimeout(() => {
+        scrollToCenter();
+        logDebug('🎯 コンテンツを中央に配置しました');
+        isCenteredRef.current = true;
+      }, 0);
+    }
+  }, [state.currentStep, scrollToCenter, logDebug]);
 
   // ローディング中
   if (state.isLoading) {
@@ -71,8 +123,36 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
 
   return (
     <div className="relative w-full h-full overflow-hidden">
-      {/* シンプルなスクロール可能コンテナ */}
-      <div className="w-full h-full overflow-y-auto">
+      {/* デバッグ情報 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-0 right-0 bg-black/90 text-white p-3 text-xs z-50 font-mono">
+          <div className="text-green-400">🎯 OneSimpleSwiper デバッグ</div>
+          <div>現在のステップ: {state.currentStep}</div>
+          <div>1セット高さ: {state.setHeight}px</div>
+          <div>画像数: {state.imageSet.length}</div>
+          <div>ScrollLayer: {state.currentStep === 'completed' ? '✅ 有効' : '❌ 待機'}</div>
+          <div>クリック有効: ✅</div>
+        </div>
+      )}
+
+      {/* ScrollLayer（Step 4完了後に有効化） */}
+      <ScrollLayer 
+        onScroll={handleScrollLayerMove}
+        height={state.setHeight}
+        setCount={setCount}
+        isEnabled={state.currentStep === 'completed' && state.setHeight > 0}
+      />
+
+      {/* コンテンツレイヤー */}
+      <div 
+        ref={contentRef}
+        className="w-full h-full overflow-y-auto"
+        data-content-layer="true"
+        style={{ 
+          zIndex: 0,
+          pointerEvents: 'auto' // 常にクリックイベントを有効にする
+        }}
+      >
         {/* Step 4完了後: 上端境界線（最初のセットの前） */}
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div className="w-full h-1 bg-red-500 opacity-70" 
@@ -85,14 +165,23 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
             {state.imageSet.map((src, imageIndex) => (
               <div 
                 key={`set1-${imageIndex}`}
-                className="relative w-full"
-                onClick={() => console.log(`📱 Set1-Image${imageIndex + 1} clicked`)}
+                className="relative w-full cursor-pointer"
+                onClick={() => handleDebugClick(1, imageIndex, src)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleDebugClick(1, imageIndex, src);
+                }}
               >
                 <img 
                   src={src} 
                   alt={`Set 1, Image ${imageIndex + 1}`}
                   className="w-full h-auto block"
                   loading="eager"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // 画像要素クリックログは削除（頻度が高すぎるため）
+                    handleDebugClick(1, imageIndex, src);
+                  }}
                 />
               </div>
             ))}
@@ -116,14 +205,23 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
                   {state.imageSet.map((src, imageIndex) => (
                     <div 
                       key={`set${actualSetNumber}-${imageIndex}`}
-                      className="relative w-full"
-                      onClick={() => console.log(`📱 Set${actualSetNumber}-Image${imageIndex + 1} clicked`)}
+                      className="relative w-full cursor-pointer"
+                      onClick={() => handleDebugClick(actualSetNumber, imageIndex, src)}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        handleDebugClick(actualSetNumber, imageIndex, src);
+                      }}
                     >
                       <img 
                         src={src} 
                         alt={`Set ${actualSetNumber}, Image ${imageIndex + 1}`}
                         className="w-full h-auto block"
                         loading="lazy"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 画像要素クリックログは削除（頻度が高すぎるため）
+                          handleDebugClick(actualSetNumber, imageIndex, src);
+                        }}
                       />
                     </div>
                   ))}
@@ -139,26 +237,6 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
                style={{ pointerEvents: 'none' }} />
         )}
       </div>
-      
-      {/* デバッグ情報 */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-0 left-0 bg-black/90 text-white p-3 text-xs z-50 font-mono">
-          <div className="text-green-400">🎯 OneSimpleSwiper (Step管理版)</div>
-          <div>現在のステップ: {state.currentStep}</div>
-          <div>1セット高さ: {state.setHeight}px</div>
-          <div>総高さ: {state.setHeight * setCount}px</div>
-          <div>セット数: {setCount}</div>
-          <div>画像数/セット: {state.imageSet.length}</div>
-          <div>境界線: {state.showBoundaries ? '✅' : '❌'}</div>
-          <div className="mt-1">
-            <div className="text-yellow-300">進捗:</div>
-            <div>Step1 {state.currentStep !== 'step1' ? '✅' : '⏳'} 画像読み込み</div>
-            <div>Step2 {['step3','step4','completed'].includes(state.currentStep) ? '✅' : '⏳'} セット複製</div>
-            <div>Step3 {['step4','completed'].includes(state.currentStep) ? '✅' : '⏳'} 高さ測定</div>
-            <div>Step4 {state.currentStep === 'completed' ? '✅' : '⏳'} 境界線(上端・セット間・下端)</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
