@@ -12,12 +12,25 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
   const [state, actions] = useSwiperSteps();
   const { contentRef, handleScrollLayerMove, scrollToCenter } = useOneLayerController();
   const isCenteredRef = useRef(false);
+  const canObserverLogRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
   // ログ出力用のヘルパー関数
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(message, data);
     }
+  };
+
+  // スクロール方向を取得する関数
+  const getScrollDirection = (): 'up' | 'down' | null => {
+    if (!contentRef.current) return null;
+    
+    const currentScrollTop = contentRef.current.scrollTop;
+    const direction = currentScrollTop > lastScrollTopRef.current ? 'down' : 'up';
+    lastScrollTopRef.current = currentScrollTop;
+    
+    return direction;
   };
 
   // 画像クリック/タッチ処理
@@ -85,9 +98,49 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
         scrollToCenter();
         logDebug('🎯 コンテンツを中央に配置しました');
         isCenteredRef.current = true;
+
+        // 初期スクロールが完了してから監視を有効化
+        setTimeout(() => {
+          canObserverLogRef.current = true;
+          logDebug('🔬 境界の監視を開始しました');
+        }, 200); // スクロールが落ち着くのを待つ
       }, 0);
     }
   }, [state.currentStep, scrollToCenter, logDebug]);
+
+  // 境界の表示監視
+  useEffect(() => {
+    if (state.currentStep !== 'completed') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // 監視が有効になるまでログを出力しない
+        if (!canObserverLogRef.current) return;
+
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            const direction = getScrollDirection();
+            const directionText = direction ? `(${direction === 'down' ? '下' : '上'}方向)` : '';
+            logDebug(`通過 -> 境界 [${entry.target.id}] ${directionText}`);
+          }
+        });
+      },
+      {
+        root: null, // ビューポートを基準にする
+        threshold: 0, // 少しでも表示されたらトリガー
+      }
+    );
+
+    const boundaries = document.querySelectorAll('[id^="boundary-"]');
+    boundaries.forEach((boundary) => observer.observe(boundary));
+
+    // クリーンアップ
+    return () => {
+      boundaries.forEach((boundary) => observer.unobserve(boundary));
+      observer.disconnect();
+      canObserverLogRef.current = false;
+    };
+  }, [state.currentStep, logDebug]);
 
   // ローディング中
   if (state.isLoading) {
@@ -155,13 +208,17 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
       >
         {/* Step 4完了後: 上端境界線（最初のセットの前） */}
         {state.showBoundaries && state.currentStep === 'completed' && (
-          <div className="w-full h-1 bg-red-500 opacity-70" 
+          <div 
+            id="boundary-top"
+            className="w-full h-1 bg-red-500 opacity-70" 
                style={{ pointerEvents: 'none' }} />
         )}
 
         {/* Step 2完了後: 最初のセット（高さ測定用） */}
         {(state.currentStep === 'step3' || state.currentStep === 'step4' || state.currentStep === 'completed') && (
-          <div className="measurement-set relative w-full">
+          <div 
+            id="set-1"
+            className="measurement-set relative w-full">
             {state.imageSet.map((src, imageIndex) => (
               <div 
                 key={`set1-${imageIndex}`}
@@ -196,12 +253,16 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
               <div key={`set-container-${actualSetNumber}`}>
                 {/* セット間境界線 */}
                 {state.showBoundaries && (
-                  <div className="w-full h-1 bg-red-500 opacity-70" 
+                  <div 
+                    id={`boundary-set-${actualSetNumber}`}
+                    className="w-full h-1 bg-red-500 opacity-70" 
                        style={{ pointerEvents: 'none' }} />
                 )}
                 
                 {/* セット本体 */}
-                <div className="relative w-full">
+                <div 
+                  id={`set-${actualSetNumber}`}
+                  className="relative w-full">
                   {state.imageSet.map((src, imageIndex) => (
                     <div 
                       key={`set${actualSetNumber}-${imageIndex}`}
@@ -233,7 +294,9 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
 
         {/* Step 4完了後: 下端境界線（最後のセットの後） */}
         {state.showBoundaries && state.currentStep === 'completed' && (
-          <div className="w-full h-1 bg-red-500 opacity-70" 
+          <div 
+            id="boundary-bottom"
+            className="w-full h-1 bg-red-500 opacity-70" 
                style={{ pointerEvents: 'none' }} />
         )}
       </div>

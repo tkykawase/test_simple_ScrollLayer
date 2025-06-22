@@ -47,13 +47,13 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     if (!containerRef.current || !isEnabled) return;
 
     e.stopPropagation();
-    
+
     const container = containerRef.current;
     const deltaY = e.deltaY;
     
     const isHighSpeed = Math.abs(deltaY) > 150;
     let scrollAmount = deltaY;
-
+    
     if (isHighSpeed) {
       scrollAmount = deltaY * 0.8;
       logDebug('🎡 ScrollLayer: ホイール高速スクロール検知', {
@@ -62,12 +62,12 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       });
     }
 
-    const currentScrollTop = container.scrollTop;
+      const currentScrollTop = container.scrollTop;
     const newScrollTop = currentScrollTop + scrollAmount;
-    
-    container.scrollTop = newScrollTop;
-    lastScrollTopRef.current = newScrollTop;
-    
+      
+      container.scrollTop = newScrollTop;
+      lastScrollTopRef.current = newScrollTop;
+      
     if (scrollAmount !== 0) {
       onScroll(scrollAmount);
     }
