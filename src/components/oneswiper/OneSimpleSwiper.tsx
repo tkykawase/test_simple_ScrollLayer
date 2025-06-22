@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSwiperSteps } from './useSwiperSteps';
-import { useOneLayerController } from './useOneLayerController';
+import { useInertiaController } from './useInertiaController';
 import { ScrollLayer } from './ScrollLayer';
 
 interface OneSimpleSwiperProps {
@@ -10,10 +10,24 @@ interface OneSimpleSwiperProps {
 
 export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) => {
   const [state, actions] = useSwiperSteps();
-  const { contentRef, handleScrollLayerMove, scrollToCenter } = useOneLayerController();
+  const [debugScrollTop, setDebugScrollTop] = useState(0); // デバッグ用のスクロール位置
+
+  // 開発モードの時だけ、スクロール位置をリアルタイムで受け取るコールバックを渡す
+  const onScrollForDebug = process.env.NODE_ENV === 'development' ? setDebugScrollTop : undefined;
+
+  const { contentRef, addForce, scrollToCenter } = useInertiaController(
+    state.currentStep === 'completed' && state.setHeight > 0,
+    onScrollForDebug
+  );
+  const [lastTotalDelta, setLastTotalDelta] = useState(0);
   const isCenteredRef = useRef(false);
   const canObserverLogRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+  const isProcessingRef = useRef(false);
+  const lastProcessTimeRef = useRef(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const isUpdatingSetsRef = useRef(false);
+  const pendingBoundaryCrossRef = useRef<{ boundaryId: string; direction: 'up' | 'down' } | null>(null);
 
   // ログ出力用のヘルパー関数
   const logDebug = (message: string, data?: Record<string, unknown>) => {
@@ -62,6 +76,46 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
     handleImageClick(setIndex, imageIndex, src);
   };
 
+  // 境界線通過処理（リファクタリング版）
+  const handleBoundaryCross = (boundaryId: string, direction: 'up' | 'down') => {
+    // 処理中に新しいイベントが来た場合は、最新のイベントを記憶して後で処理する
+    if (isProcessingRef.current) {
+      logDebug(`⏳ 処理中、イベントを保留: [${boundaryId}]`);
+      pendingBoundaryCrossRef.current = { boundaryId, direction };
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    lastProcessTimeRef.current = Date.now();
+    
+    logDebug(`🔄 境界線通過処理実行: [${boundaryId}]`);
+
+    isUpdatingSetsRef.current = true;
+
+    if (direction === 'up') {
+      actions.addSetToTopAndRemoveFromBottom();
+    } else {
+      actions.addSetToBottomAndRemoveFromTop();
+    }
+    
+    setTimeout(() => {
+      isProcessingRef.current = false;
+      logDebug(`✅ 処理完了フラグリセット: [${boundaryId}]`);
+
+      // 保留中のイベントがあれば処理する
+      if (pendingBoundaryCrossRef.current) {
+        logDebug(`🔄 保留イベントを実行: [${pendingBoundaryCrossRef.current.boundaryId}]`);
+        const { boundaryId: pendingId, direction: pendingDir } = pendingBoundaryCrossRef.current;
+        pendingBoundaryCrossRef.current = null; // 必ず先にクリアする
+        handleBoundaryCross(pendingId, pendingDir);
+      }
+    }, 200);
+
+    setTimeout(() => {
+      isUpdatingSetsRef.current = false;
+    }, 100);
+  };
+
   // 初期化トリガー
   useEffect(() => {
     if (state.currentStep === 'step1' && state.isLoading) {
@@ -108,39 +162,71 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
     }
   }, [state.currentStep, scrollToCenter, logDebug]);
 
-  // 境界の表示監視
+  // 境界線の動的監視
   useEffect(() => {
     if (state.currentStep !== 'completed') return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // 監視が有効になるまでログを出力しない
-        if (!canObserverLogRef.current) return;
+    // Observerの初期化（初回のみ）
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (!canObserverLogRef.current) return;
 
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
+          const scrollContainer = contentRef.current;
+          if (!scrollContainer) return;
+
+          entries.forEach((entry) => {
+            const boundaryId = entry.target.id;
             const direction = getScrollDirection();
-            const directionText = direction ? `(${direction === 'down' ? '下' : '上'}方向)` : '';
-            logDebug(`通過 -> 境界 [${entry.target.id}] ${directionText}`);
-          }
-        });
-      },
-      {
-        root: null, // ビューポートを基準にする
-        threshold: 0, // 少しでも表示されたらトリガー
-      }
-    );
+            
+            // 上下の境界は「画面内に入った時」に処理
+            if (entry.isIntersecting) {
+              if (boundaryId === 'boundary-top' && (direction === 'up' || scrollContainer.scrollTop < 10)) {
+                logDebug(`🎯 接触 -> 境界 [${boundaryId}] (上方向)`);
+                handleBoundaryCross(boundaryId, 'up');
+              } else if (boundaryId === 'boundary-bottom') {
+                const isAtBottom = Math.abs(scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 10;
+                if (direction === 'down' || isAtBottom) {
+                  logDebug(`🎯 接触 -> 境界 [${boundaryId}] (下方向)`);
+                  handleBoundaryCross(boundaryId, 'down');
+                }
+              }
+            }
+            // セット間の境界は「画面外に出た時」に処理
+            else {
+              // DOM更新直後のイベントの嵐をここで防ぐ
+              if (isUpdatingSetsRef.current) return;
 
+              if (boundaryId.startsWith('boundary-set-') && direction) {
+                logDebug(`通過 -> 境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向) (スクロール位置: ${contentRef.current?.scrollTop || 0})`);
+                handleBoundaryCross(boundaryId, direction);
+              }
+            }
+          });
+        },
+        {
+          root: contentRef.current,
+          threshold: 0,
+          rootMargin: '100px 0px'
+        }
+      );
+    }
+
+    const observer = observerRef.current;
+
+    // 既存の監視をすべて解除
+    observer.disconnect();
+
+    // 現在表示されている境界線をすべて監視対象に追加
     const boundaries = document.querySelectorAll('[id^="boundary-"]');
     boundaries.forEach((boundary) => observer.observe(boundary));
+    logDebug(`🔄 境界線監視を更新: ${boundaries.length}個の境界線を監視中`);
 
-    // クリーンアップ
+    // コンポーネントのアンマウント時に監視を停止
     return () => {
-      boundaries.forEach((boundary) => observer.unobserve(boundary));
       observer.disconnect();
-      canObserverLogRef.current = false;
     };
-  }, [state.currentStep, logDebug]);
+  }, [state.currentSets, state.currentStep]); // セットまたはステップが変更されるたびに実行
 
   // ローディング中
   if (state.isLoading) {
@@ -182,17 +268,29 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
           <div className="text-green-400">🎯 OneSimpleSwiper デバッグ</div>
           <div>現在のステップ: {state.currentStep}</div>
           <div>1セット高さ: {state.setHeight}px</div>
-          <div>画像数: {state.imageSet.length}</div>
+          <div>画像数/セット: {state.imageSet.length}</div>
+          <div>表示セット数: {state.currentSets.length}</div>
+          <div>セットカウンター: {state.setCounter}</div>
           <div>ScrollLayer: {state.currentStep === 'completed' ? '✅ 有効' : '❌ 待機'}</div>
           <div>クリック有効: ✅</div>
+          <div className="border-t border-gray-600 mt-2 pt-2">
+            <div className="text-yellow-400">🔄 制御状態</div>
+            <div>処理中: {isProcessingRef.current ? '⏳ 処理中' : '✅ 待機中'}</div>
+            <div>スクロール位置: {Math.round(debugScrollTop)}px</div>
+            <div>最終移動量: {lastTotalDelta}px</div>
+            <div>コンテナ高: {contentRef.current?.scrollHeight || 0}px</div>
+            <div>ScrollLayer高: {state.setHeight * setCount}px</div>
+            <div>境界線数: {document.querySelectorAll('[id^="boundary-"]').length}</div>
+            <div>監視状態: {observerRef.current ? '✅ 監視中' : '❌ 停止中'}</div>
+          </div>
         </div>
       )}
 
       {/* ScrollLayer（Step 4完了後に有効化） */}
       <ScrollLayer 
-        onScroll={handleScrollLayerMove}
+        onWheelDelta={addForce}
+        onScrollEnd={setLastTotalDelta}
         height={state.setHeight}
-        setCount={setCount}
         isEnabled={state.currentStep === 'completed' && state.setHeight > 0}
       />
 
@@ -210,94 +308,58 @@ export const OneSimpleSwiper = ({ images, setCount = 5 }: OneSimpleSwiperProps) 
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id="boundary-top"
-            className="w-full h-1 bg-red-500 opacity-70" 
-               style={{ pointerEvents: 'none' }} />
+            className="w-full h-1 bg-red-500 opacity-50" 
+               style={{ pointerEvents: 'none', height: '20px', marginBottom: '-19px' }} />
         )}
 
-        {/* Step 2完了後: 最初のセット（高さ測定用） */}
-        {(state.currentStep === 'step3' || state.currentStep === 'step4' || state.currentStep === 'completed') && (
-          <div 
-            id="set-1"
-            className="measurement-set relative w-full">
-            {state.imageSet.map((src, imageIndex) => (
+        {/* 動的セット表示 */}
+        {state.currentSets.map((set, setIndex) => (
+          <div key={`set-container-${set.id}`}>
+            {/* セット間境界線（最初のセット以外） */}
+            {state.showBoundaries && setIndex > 0 && (
               <div 
-                key={`set1-${imageIndex}`}
-                className="relative w-full cursor-pointer"
-                onClick={() => handleDebugClick(1, imageIndex, src)}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  handleDebugClick(1, imageIndex, src);
-                }}
-              >
-                <img 
-                  src={src} 
-                  alt={`Set 1, Image ${imageIndex + 1}`}
-                  className="w-full h-auto block"
-                  loading="eager"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // 画像要素クリックログは削除（頻度が高すぎるため）
-                    handleDebugClick(1, imageIndex, src);
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Step 3完了後: 残りのセット（セット間境界線付き） */}
-        {(state.currentStep === 'completed') && state.setHeight > 0 && 
-          Array(setCount - 1).fill(0).map((_, setIndex) => {
-            const actualSetNumber = setIndex + 2;
-            return (
-              <div key={`set-container-${actualSetNumber}`}>
-                {/* セット間境界線 */}
-                {state.showBoundaries && (
-                  <div 
-                    id={`boundary-set-${actualSetNumber}`}
-                    className="w-full h-1 bg-red-500 opacity-70" 
+                id={`boundary-set-${set.setNumber}`}
+                className="w-full h-1 bg-red-500 opacity-70" 
                        style={{ pointerEvents: 'none' }} />
                 )}
                 
                 {/* セット本体 */}
-                <div 
-                  id={`set-${actualSetNumber}`}
-                  className="relative w-full">
-                  {state.imageSet.map((src, imageIndex) => (
+            <div 
+              id={`set-${set.setNumber}`}
+              className={`relative w-full ${setIndex === 0 ? 'measurement-set' : ''}`}>
+              {set.images.map((src, imageIndex) => (
                     <div 
-                      key={`set${actualSetNumber}-${imageIndex}`}
+                  key={`${set.id}-${imageIndex}`}
                       className="relative w-full cursor-pointer"
-                      onClick={() => handleDebugClick(actualSetNumber, imageIndex, src)}
+                  onClick={() => handleDebugClick(set.setNumber, imageIndex, src)}
                       onTouchEnd={(e) => {
                         e.preventDefault();
-                        handleDebugClick(actualSetNumber, imageIndex, src);
+                    handleDebugClick(set.setNumber, imageIndex, src);
                       }}
                     >
                       <img 
                         src={src} 
-                        alt={`Set ${actualSetNumber}, Image ${imageIndex + 1}`}
+                    alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
                         className="w-full h-auto block"
-                        loading="lazy"
+                    loading={setIndex === 0 ? "eager" : "lazy"}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // 画像要素クリックログは削除（頻度が高すぎるため）
-                          handleDebugClick(actualSetNumber, imageIndex, src);
+                      // 画像要素クリックログは削除（頻度が高すぎるため）
+                      handleDebugClick(set.setNumber, imageIndex, src);
                         }}
                       />
                     </div>
                   ))}
                 </div>
               </div>
-            );
-          })
-        }
+        ))}
 
         {/* Step 4完了後: 下端境界線（最後のセットの後） */}
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id="boundary-bottom"
-            className="w-full h-1 bg-red-500 opacity-70" 
-               style={{ pointerEvents: 'none' }} />
+            className="w-full h-1 bg-red-500 opacity-50" 
+               style={{ pointerEvents: 'none', height: '20px', marginTop: '-19px' }} />
         )}
       </div>
     </div>

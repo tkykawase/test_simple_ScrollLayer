@@ -2,6 +2,12 @@ import { useState, useRef } from 'react';
 
 type InitStep = 'step1' | 'step2' | 'step3' | 'step4' | 'completed';
 
+interface SetData {
+  id: string;
+  setNumber: number;
+  images: string[];
+}
+
 interface SwiperStepsState {
   currentStep: InitStep;
   imageSet: string[];
@@ -9,6 +15,8 @@ interface SwiperStepsState {
   showBoundaries: boolean;
   isLoading: boolean;
   error: string | null;
+  currentSets: SetData[];
+  setCounter: number;
 }
 
 interface SwiperStepsActions {
@@ -17,6 +25,12 @@ interface SwiperStepsActions {
   measureStep3: () => Promise<void>;
   enableStep4: () => void;
   reset: () => void;
+  addSetToTop: () => void;
+  addSetToBottom: () => void;
+  addSetToTopAndRemoveFromBottom: () => void;
+  addSetToBottomAndRemoveFromTop: () => void;
+  removeSetFromTop: () => void;
+  removeSetFromBottom: () => void;
 }
 
 export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
@@ -26,10 +40,28 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
     setHeight: 0,
     showBoundaries: false,
     isLoading: true,
-    error: null
+    error: null,
+    currentSets: [],
+    setCounter: 0
   });
   
   const initRef = useRef(false);
+
+  // セット生成関数
+  const generateSet = (setNumber: number, imageSet: string[]): SetData => ({
+    id: `set-${setNumber}`,
+    setNumber,
+    images: imageSet
+  });
+
+  // 初期セット生成
+  const generateInitialSets = (): SetData[] => {
+    const sets: SetData[] = [];
+    for (let i = 1; i <= 5; i++) {
+      sets.push(generateSet(i, state.imageSet));
+    }
+    return sets;
+  };
 
   // Step 1: 画像セットの作成と読み込み
   const initializeStep1 = async (images: string[]): Promise<void> => {
@@ -89,9 +121,16 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
     console.log('📊 画像セット:', state.imageSet.length);
     console.log('📸 複製セット数: 5');
     
-    // セットの複製準備完了
+    // 初期セットを生成
+    const initialSets = generateInitialSets();
+    setState(prev => ({ 
+      ...prev, 
+      currentSets: initialSets,
+      setCounter: 5,
+      currentStep: 'step3'
+    }));
+    
     console.log('✅ Step 2 完了: セット複製準備完了');
-    setState(prev => ({ ...prev, currentStep: 'step3' }));
     console.groupEnd();
   };
 
@@ -148,6 +187,82 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
     console.groupEnd();
   };
 
+  // 無限スクロール用のセット操作
+  const addSetToTop = (): void => {
+    setState(prev => {
+      const newSetNumber = prev.setCounter + 1;
+      const newSet = generateSet(newSetNumber, state.imageSet);
+      
+      console.log(`🔄 セット追加（上）: Set${newSetNumber}`);
+      
+      return {
+        ...prev,
+        currentSets: [newSet, ...prev.currentSets.slice(0, -1)], // 上に追加、下から削除
+        setCounter: newSetNumber
+      };
+    });
+  };
+
+  const addSetToBottom = (): void => {
+    setState(prev => {
+      const newSetNumber = prev.setCounter + 1;
+      const newSet = generateSet(newSetNumber, state.imageSet);
+      
+      console.log(`🔄 セット追加（下）: Set${newSetNumber}`);
+      
+      return {
+        ...prev,
+        currentSets: [...prev.currentSets.slice(1), newSet], // 下に追加、上から削除
+        setCounter: newSetNumber
+      };
+    });
+  };
+
+  // セットの追加と削除を同時に実行する関数
+  const addSetToTopAndRemoveFromBottom = (): void => {
+    setState(prev => {
+      const newSetNumber = prev.setCounter + 1;
+      const newSet = generateSet(newSetNumber, state.imageSet);
+      
+      console.log(`🔄 セット操作（上追加・下削除）: Set${newSetNumber}`);
+      
+      return {
+        ...prev,
+        currentSets: [newSet, ...prev.currentSets.slice(0, -1)], // 上に追加、下から削除
+        setCounter: newSetNumber
+      };
+    });
+  };
+
+  const addSetToBottomAndRemoveFromTop = (): void => {
+    console.log(`🔍 addSetToBottomAndRemoveFromTop 開始: 現在のカウンター = ${state.setCounter}`);
+    
+    setState(prev => {
+      const newSetNumber = prev.setCounter + 1;
+      const newSet = generateSet(newSetNumber, state.imageSet);
+      
+      console.log(`🔄 セット操作（下追加・上削除）: Set${newSetNumber} (前のカウンター: ${prev.setCounter})`);
+      
+      return {
+        ...prev,
+        currentSets: [...prev.currentSets.slice(1), newSet], // 下に追加、上から削除
+        setCounter: newSetNumber
+      };
+    });
+    
+    console.log(`✅ addSetToBottomAndRemoveFromTop 完了`);
+  };
+
+  const removeSetFromTop = (): void => {
+    console.log('🔄 セット削除（上）');
+    // 実際の削除は addSetToBottom で同時に行われる
+  };
+
+  const removeSetFromBottom = (): void => {
+    console.log('🔄 セット削除（下）');
+    // 実際の削除は addSetToTop で同時に行われる
+  };
+
   // リセット
   const reset = (): void => {
     initRef.current = false;
@@ -157,7 +272,9 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
       setHeight: 0,
       showBoundaries: false,
       isLoading: true,
-      error: null
+      error: null,
+      currentSets: [],
+      setCounter: 0
     });
   };
 
@@ -168,7 +285,13 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
       completeStep2,
       measureStep3,
       enableStep4,
-      reset
+      reset,
+      addSetToTop,
+      addSetToBottom,
+      addSetToTopAndRemoveFromBottom,
+      addSetToBottomAndRemoveFromTop,
+      removeSetFromTop,
+      removeSetFromBottom
     }
   ];
 };

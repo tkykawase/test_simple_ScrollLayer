@@ -12,9 +12,7 @@ console.log('  - localStorage.setItem("disable_strict_mode", "true") : StrictMod
 console.log('  - localStorage.setItem("debug_mode", "enabled") : 全体デバッグモード');
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
     <App />
-  </React.StrictMode>
 );
 
 // 境界要素配置のパフォーマンス監視（開発環境のみ）（94版から統合）

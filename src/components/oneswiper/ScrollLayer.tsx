@@ -1,23 +1,23 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 
 interface ScrollLayerProps {
-  onScroll: (deltaY: number) => void; // 移動量を親に通知
+  onWheelDelta: (deltaY: number) => void; // ホイールの移動量を親に通知
+  onScrollEnd?: (totalDelta: number) => void; // スクロール終了を通知
   height?: number; // 1セットの高さ
-  setCount?: number; // セット数
   isEnabled?: boolean; // 有効化フラグ
 }
 
 export const ScrollLayer = React.memo(function ScrollLayer({
-  onScroll,
+  onWheelDelta,
+  onScrollEnd,
   height = 0,
-  setCount = 1,
   isEnabled = false
 }: ScrollLayerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const lastScrollTopRef = useRef(0);
-
-  // 高速スクロール対応
+  const layerRef = useRef<HTMLDivElement>(null);
+  const scrollableContentRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテンツへの参照
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const accumulatedDeltaRef = useRef(0);
+  const lastScrollTopRef = useRef(0); // 最後のスクロール位置を追跡
 
   // ログ出力用のヘルパー関数
   const logDebug = useCallback((message: string, data?: Record<string, unknown>) => {
@@ -26,92 +26,87 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     }
   }, []);
 
-  // スクロールイベントハンドラー（スクロール検知のみ）
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (!isEnabled) return;
-    
-    const target = e.currentTarget;
-    const currentScrollTop = target.scrollTop;
-    const deltaY = currentScrollTop - lastScrollTopRef.current;
-    
-    if (deltaY !== 0) {
-      onScroll(deltaY);
-      // スクロールログは削除（頻度が高すぎるため）
-    }
-    
-    lastScrollTopRef.current = currentScrollTop;
-  }, [onScroll, isEnabled, height]);
-
   // ホイールイベント処理（スクロール専用）
-  const handleWheelEvent = useCallback((e: React.WheelEvent) => {
-    if (!containerRef.current || !isEnabled) return;
+  const handleWheelEvent = useCallback((e: WheelEvent) => {
+    if (!isEnabled) return;
 
+    e.preventDefault();
     e.stopPropagation();
 
-    const container = containerRef.current;
     const deltaY = e.deltaY;
-    
-    const isHighSpeed = Math.abs(deltaY) > 150;
-    let scrollAmount = deltaY;
-    
-    if (isHighSpeed) {
-      scrollAmount = deltaY * 0.8;
-      logDebug('🎡 ScrollLayer: ホイール高速スクロール検知', {
-        deltaY,
-        appliedAmount: scrollAmount,
-      });
-    }
+    onWheelDelta(deltaY);
 
-      const currentScrollTop = container.scrollTop;
-    const newScrollTop = currentScrollTop + scrollAmount;
-      
-      container.scrollTop = newScrollTop;
-      lastScrollTopRef.current = newScrollTop;
-      
-    if (scrollAmount !== 0) {
-      onScroll(scrollAmount);
-    }
+    // ログ用の移動量を蓄積
+    accumulatedDeltaRef.current += deltaY;
     
     if (wheelTimeoutRef.current) {
       clearTimeout(wheelTimeoutRef.current);
     }
     
     wheelTimeoutRef.current = setTimeout(() => {
-      logDebug('⏱️ ScrollLayer: ホイール操作終了');
+      if (onScrollEnd) {
+        onScrollEnd(accumulatedDeltaRef.current);
+      }
+      logDebug('↕️ ScrollLayer: ホイール操作完了', { totalDelta: accumulatedDeltaRef.current });
+      accumulatedDeltaRef.current = 0;
     }, 150);
     
-  }, [onScroll, isEnabled, logDebug]);
+  }, [onWheelDelta, isEnabled, logDebug, onScrollEnd]);
 
-  // 初期スクロール位置設定
-  useEffect(() => {
-    if (containerRef.current && height > 0 && isEnabled) {
-      const container = containerRef.current;
-      const centerPosition = container.scrollHeight / 2;
-      
-      container.scrollTo({
-        top: centerPosition,
-        behavior: 'auto'
-      });
-      
-      lastScrollTopRef.current = centerPosition;
-      
-      logDebug('🎯 ScrollLayer: 初期化完了＆中央へ移動', {
-        contentHeight: height,
-        totalHeight: container.scrollHeight,
-        centerPosition,
-        enabled: isEnabled
-      });
+  // オートスクロール（中央クリック）用のイベント処理
+  const handleNativeScroll = useCallback(() => {
+    if (!isEnabled || !scrollableContentRef.current) return;
+
+    const currentScrollTop = scrollableContentRef.current.scrollTop;
+    const deltaY = currentScrollTop - lastScrollTopRef.current;
+    
+    if (deltaY !== 0) {
+      onWheelDelta(deltaY);
+      logDebug('↕️ ScrollLayer: ネイティブスクロール検知', { deltaY });
     }
-  }, [height, isEnabled, logDebug]);
 
-  // クリーンアップ
+    // スクロール位置を常に中央にリセットし、擬似的な無限スクロールを実現
+    const scrollHeight = scrollableContentRef.current.scrollHeight;
+    const clientHeight = scrollableContentRef.current.clientHeight;
+    const newScrollTop = (scrollHeight - clientHeight) / 2;
+    scrollableContentRef.current.scrollTop = newScrollTop;
+    lastScrollTopRef.current = newScrollTop;
+
+  }, [isEnabled, onWheelDelta, logDebug]);
+
+  // イベントリスナーの設定とクリーンアップ
   useEffect(() => {
+    const layerElement = layerRef.current;
+    const scrollableElement = scrollableContentRef.current;
+
+    if (layerElement) {
+      // ホイールイベントは外側のレイヤーで捕捉
+      layerElement.addEventListener('wheel', handleWheelEvent, { passive: false });
+    }
+    if (scrollableElement) {
+      // スクロールイベントは内側のスクロール可能要素で捕捉
+      scrollableElement.addEventListener('scroll', handleNativeScroll, { passive: true });
+
+      // 初期スクロール位置を中央に設定
+      const scrollHeight = scrollableElement.scrollHeight;
+      const clientHeight = scrollableElement.clientHeight;
+      const initialScrollTop = (scrollHeight - clientHeight) / 2;
+      scrollableElement.scrollTop = initialScrollTop;
+      lastScrollTopRef.current = initialScrollTop;
+    }
+
     return () => {
+      if (layerElement) {
+        layerElement.removeEventListener('wheel', handleWheelEvent);
+      }
+      if (scrollableElement) {
+        scrollableElement.removeEventListener('scroll', handleNativeScroll);
+      }
       if (wheelTimeoutRef.current) {
         clearTimeout(wheelTimeoutRef.current);
       }
     };
-  }, []);
+  }, [handleWheelEvent, handleNativeScroll]);
 
   // Step完了前は非表示
   if (!isEnabled || height === 0) {
@@ -120,52 +115,35 @@ export const ScrollLayer = React.memo(function ScrollLayer({
 
   return (
     <div 
+      ref={layerRef}
       className="absolute inset-0 z-10" 
-      style={{ pointerEvents: 'none' }}
+      style={{ pointerEvents: 'auto' }} // ホイールイベントをここで受け取る
     >
-      {/* 透明スクロールエリア（スクロール専用、クリックは下層に伝播） */}
+      {/* 
+        オートスクロール（中央クリック）を機能させるための非表示のスクロール領域。
+        ホイールイベントはこちらでは処理せず、親divに任せる。
+      */}
       <div
-        ref={containerRef}
-        className="h-full overflow-y-auto"
-        onScroll={handleScroll}
-        onWheelCapture={handleWheelEvent}
-        onClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          const x = e.clientX;
-          const y = e.clientY;
-          const contentLayer = document.querySelector('[data-content-layer="true"]');
-          if (contentLayer) {
-            const images = contentLayer.querySelectorAll('img');
-            for (const img of images) {
-              const imgRect = img.getBoundingClientRect();
-              if (x >= imgRect.left && x <= imgRect.right && y >= imgRect.top && y <= imgRect.bottom) {
-                const parentDiv = img.closest('div[onClick]');
-                if (parentDiv) {
-                  (parentDiv as HTMLElement).click();
-                } else {
-                  (img as HTMLElement).click();
-                }
-                return;
-              }
-            }
-          }
-        }}
+        ref={scrollableContentRef}
         style={{
-          pointerEvents: 'auto',
-          background: 'transparent'
+          width: '100%',
+          height: '100%',
+          overflowY: 'auto',
+          // スクロールバーを視覚的に隠す
+          scrollbarWidth: 'none', // Firefox
+          msOverflowStyle: 'none' // IE and Edge
         }}
+        className="hide-scrollbar" // Webkit用のCSSクラス
       >
-        {/* 仮想コンテンツ（スクロール用） */}
-        <div 
-          className="w-full"
-          style={{ 
-            height: `${height * setCount}px`,
-            pointerEvents: 'none',
-            background: 'transparent'
-          }}
-        />
+        <div style={{ height: '300vh', pointerEvents: 'none' }} />
       </div>
     </div>
   );
 });
+
+// App.css または index.css に以下を追加する必要がある
+/*
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+*/
