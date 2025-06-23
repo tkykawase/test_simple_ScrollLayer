@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import { useSwiperSyncController } from './useSwiperSyncController';
 
 interface ScrollLayerProps {
+  side: 'left' | 'right'; // 追加
   onWheelDelta: (deltaY: number) => void; // ホイールの移動量を親に通知
   onScrollEnd?: (totalDelta: number) => void; // スクロール終了を通知
   height?: number; // 1セットの高さ
@@ -8,6 +10,7 @@ interface ScrollLayerProps {
 }
 
 export const ScrollLayer = React.memo(function ScrollLayer({
+  side,
   onWheelDelta,
   onScrollEnd,
   height = 0,
@@ -18,6 +21,12 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const accumulatedDeltaRef = useRef(0);
   const lastScrollTopRef = useRef(0); // 最後のスクロール位置を追跡
+
+  // --- 追加: 同期コントローラー ---
+  const { emitSync, onSync } = useSwiperSyncController({
+    syncGroupId: 'main',
+    layerId: side,
+  });
 
   // ログ出力用のヘルパー関数
   const logDebug = useCallback((message: string, data?: Record<string, unknown>) => {
@@ -35,6 +44,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
 
     const deltaY = e.deltaY;
     onWheelDelta(deltaY);
+    emitSync(deltaY); // --- 追加: 同期イベント発行 ---
 
     // ログ用の移動量を蓄積
     accumulatedDeltaRef.current += deltaY;
@@ -51,7 +61,17 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       accumulatedDeltaRef.current = 0;
     }, 150);
     
-  }, [onWheelDelta, isEnabled, logDebug, onScrollEnd]);
+  }, [onWheelDelta, isEnabled, logDebug, onScrollEnd, emitSync]);
+
+  // --- 追加: 他方からの同期イベント受信 ---
+  useEffect(() => {
+    const unsubscribe = onSync((event) => {
+      // event.delta を使って自分のスクロール・スワイパーを更新
+      onWheelDelta(event.delta);
+      logDebug('🔄 ScrollLayer: 同期イベント受信', { delta: event.delta, from: event.sourceId });
+    });
+    return unsubscribe;
+  }, [onSync, onWheelDelta, logDebug]);
 
   // オートスクロール（中央クリック）用のイベント処理
   const handleNativeScroll = useCallback(() => {

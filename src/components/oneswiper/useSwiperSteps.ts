@@ -1,39 +1,14 @@
 import { useState, useRef } from 'react';
+import type { SetData, SwiperStepsState, SwiperStepsActions } from './swiper-types';
 
-type InitStep = 'step1' | 'step2' | 'step3' | 'step4' | 'completed';
+// =============================
+// useSwiperSteps.ts
+// このフックは「初期セット生成専用フック」です。
+// 初期化・画像セット生成・プリロード・初期セット配置・高さ測定など、
+// スワイパーの初期状態を作ることに特化しています。
+// =============================
 
-interface SetData {
-  id: string;
-  setNumber: number;
-  images: string[];
-}
-
-interface SwiperStepsState {
-  currentStep: InitStep;
-  imageSet: string[];
-  setHeight: number;
-  showBoundaries: boolean;
-  isLoading: boolean;
-  error: string | null;
-  currentSets: SetData[];
-  setCounter: number;
-}
-
-interface SwiperStepsActions {
-  initializeStep1: (images: string[]) => Promise<void>;
-  completeStep2: () => void;
-  measureStep3: () => Promise<void>;
-  enableStep4: () => void;
-  reset: () => void;
-  addSetToTop: () => void;
-  addSetToBottom: () => void;
-  addSetToTopAndRemoveFromBottom: () => void;
-  addSetToBottomAndRemoveFromTop: () => void;
-  removeSetFromTop: () => void;
-  removeSetFromBottom: () => void;
-}
-
-export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
+export const useSwiperSteps = (side: 'left' | 'right'): [SwiperStepsState, SwiperStepsActions] => {
   const [state, setState] = useState<SwiperStepsState>({
     currentStep: 'step1',
     imageSet: [],
@@ -49,9 +24,10 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
 
   // セット生成関数
   const generateSet = (setNumber: number, imageSet: string[]): SetData => ({
-    id: `set-${setNumber}`,
+    id: `set-${side}-${setNumber}`,
     setNumber,
-    images: imageSet
+    images: imageSet,
+    side
   });
 
   // 初期セット生成
@@ -152,7 +128,7 @@ export const useSwiperSteps = (): [SwiperStepsState, SwiperStepsActions] => {
             console.log(`  画像${i + 1}: ${img.clientHeight}px`);
           });
           
-          console.log('📏 1セット高さ:', height);
+          console.log('�� 1セット高さ:', height);
           console.log('📏 全体高さ:', height * 5);
           
           setState(prev => ({ ...prev, setHeight: height, currentStep: 'step4' }));

@@ -12,8 +12,15 @@ const testImages = [
 
 export const Home2: React.FC = () => {
   return (
-    <div className="h-screen w-full">
-      <OneSimpleSwiper images={testImages} />
+    <div className="h-screen w-full flex">
+      {/* 左側スワイパー */}
+      <div className="w-1/2 h-full border-r border-gray-300">
+        <OneSimpleSwiper images={testImages} side="left" />
+      </div>
+      {/* 右側スワイパー */}
+      <div className="w-1/2 h-full">
+        <OneSimpleSwiper images={testImages} side="right" />
+      </div>
     </div>
   );
 };
