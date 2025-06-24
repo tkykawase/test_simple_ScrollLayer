@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import type { SetData, SwiperStepsState, SwiperStepsActions } from './swiper-types';
+import type { SetData, SwiperStepsState, SwiperStepsActions } from '../models/swiper-types';
+import { addSetToTopAndRemoveFromBottom, addSetToBottomAndRemoveFromTop } from '../models/swiperSetManager';
 
 // =============================
 // useSwiperSteps.ts
@@ -163,80 +164,13 @@ export const useSwiperSteps = (side: 'left' | 'right'): [SwiperStepsState, Swipe
     console.groupEnd();
   };
 
-  // 無限スクロール用のセット操作
-  const addSetToTop = (): void => {
-    setState(prev => {
-      const newSetNumber = prev.setCounter + 1;
-      const newSet = generateSet(newSetNumber, state.imageSet);
-      
-      console.log(`🔄 セット追加（上）: Set${newSetNumber}`);
-      
-      return {
-        ...prev,
-        currentSets: [newSet, ...prev.currentSets.slice(0, -1)], // 上に追加、下から削除
-        setCounter: newSetNumber
-      };
-    });
+  // 無限スクロール用のセット操作（外部モジュールを呼び出す）
+  const handleAddSetToTopAndRemoveFromBottom = (): void => {
+    setState(prevState => addSetToTopAndRemoveFromBottom(prevState));
   };
 
-  const addSetToBottom = (): void => {
-    setState(prev => {
-      const newSetNumber = prev.setCounter + 1;
-      const newSet = generateSet(newSetNumber, state.imageSet);
-      
-      console.log(`🔄 セット追加（下）: Set${newSetNumber}`);
-      
-      return {
-        ...prev,
-        currentSets: [...prev.currentSets.slice(1), newSet], // 下に追加、上から削除
-        setCounter: newSetNumber
-      };
-    });
-  };
-
-  // セットの追加と削除を同時に実行する関数
-  const addSetToTopAndRemoveFromBottom = (): void => {
-    setState(prev => {
-      const newSetNumber = prev.setCounter + 1;
-      const newSet = generateSet(newSetNumber, state.imageSet);
-      
-      console.log(`🔄 セット操作（上追加・下削除）: Set${newSetNumber}`);
-      
-      return {
-        ...prev,
-        currentSets: [newSet, ...prev.currentSets.slice(0, -1)], // 上に追加、下から削除
-        setCounter: newSetNumber
-      };
-    });
-  };
-
-  const addSetToBottomAndRemoveFromTop = (): void => {
-    console.log(`🔍 addSetToBottomAndRemoveFromTop 開始: 現在のカウンター = ${state.setCounter}`);
-    
-    setState(prev => {
-      const newSetNumber = prev.setCounter + 1;
-      const newSet = generateSet(newSetNumber, state.imageSet);
-      
-      console.log(`🔄 セット操作（下追加・上削除）: Set${newSetNumber} (前のカウンター: ${prev.setCounter})`);
-      
-      return {
-        ...prev,
-        currentSets: [...prev.currentSets.slice(1), newSet], // 下に追加、上から削除
-        setCounter: newSetNumber
-      };
-    });
-    
-    console.log(`✅ addSetToBottomAndRemoveFromTop 完了`);
-  };
-
-  const removeSetFromTop = (): void => {
-    console.log('🔄 セット削除（上）');
-    // 実際の削除は addSetToBottom で同時に行われる
-  };
-
-  const removeSetFromBottom = (): void => {
-    console.log('🔄 セット削除（下）');
-    // 実際の削除は addSetToTop で同時に行われる
+  const handleAddSetToBottomAndRemoveFromTop = (): void => {
+    setState(prevState => addSetToBottomAndRemoveFromTop(prevState));
   };
 
   // リセット
@@ -262,12 +196,8 @@ export const useSwiperSteps = (side: 'left' | 'right'): [SwiperStepsState, Swipe
       measureStep3,
       enableStep4,
       reset,
-      addSetToTop,
-      addSetToBottom,
-      addSetToTopAndRemoveFromBottom,
-      addSetToBottomAndRemoveFromTop,
-      removeSetFromTop,
-      removeSetFromBottom
+      addSetToTopAndRemoveFromBottom: handleAddSetToTopAndRemoveFromBottom,
+      addSetToBottomAndRemoveFromTop: handleAddSetToBottomAndRemoveFromTop,
     }
   ];
 };

@@ -1,4 +1,4 @@
-import { useSwiperController } from './useSwiperController';
+import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
 
 interface OneSimpleSwiperProps {

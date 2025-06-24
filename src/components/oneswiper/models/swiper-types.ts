@@ -25,10 +25,6 @@ export interface SwiperStepsActions {
   measureStep3: () => Promise<void>;
   enableStep4: () => void;
   reset: () => void;
-  addSetToTop: () => void;
-  addSetToBottom: () => void;
   addSetToTopAndRemoveFromBottom: () => void;
   addSetToBottomAndRemoveFromTop: () => void;
-  removeSetFromTop: () => void;
-  removeSetFromBottom: () => void;
 } 

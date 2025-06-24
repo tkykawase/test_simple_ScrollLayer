@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { useSwiperSyncController } from './useSwiperSyncController';
+import { useSwiperSyncController } from '../hooks/useSwiperSyncController';
 
 interface ScrollLayerProps {
   side: 'left' | 'right'; // 追加

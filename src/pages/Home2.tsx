@@ -1,5 +1,5 @@
 import React from 'react';
-import { OneSimpleSwiper } from '../components/oneswiper/OneSimpleSwiper';
+import { OneSimpleSwiper } from '../components/oneswiper/components/OneSimpleSwiper';
 
 // テスト用の画像URL配列
 const testImages = [
