@@ -1,7 +1,7 @@
 // src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Home2 } from './pages/home2';
+import { Home2 } from './pages/Home2';
 
 export const App = () => {
   return (
