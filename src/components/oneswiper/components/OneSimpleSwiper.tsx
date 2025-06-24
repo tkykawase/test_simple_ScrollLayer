@@ -76,6 +76,14 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             <div>境界線数: {observerRef.current ? document.querySelectorAll('[id^="boundary-"]').length : 0}</div>
             <div>監視状態: {observerRef.current ? '✅ 監視中' : '❌ 停止中'}</div>
           </div>
+          {/* 🔥 追加: 境界要素の安定性情報 */}
+          <div className="border-t border-gray-600 mt-2 pt-2">
+            <div className="text-blue-400">🛡️ 境界安定化</div>
+            <div>クールダウン: 500ms</div>
+            <div>最大連続: 3回</div>
+            <div>rootMargin: 50px</div>
+            <div>threshold: [0, 0.1]</div>
+          </div>
         </div>
       )}
 
@@ -102,8 +110,13 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id={`boundary-top-${side}`}
-            className="w-full h-1 bg-red-500 opacity-50" 
-               style={{ pointerEvents: 'none', height: '20px', marginBottom: '-19px' }} />
+            className="w-full bg-red-500 opacity-50" 
+            style={{ 
+              pointerEvents: 'none', 
+              height: '10px', // 🔥 改善: 境界要素のサイズを縮小
+              marginBottom: '-9px' 
+            }} 
+          />
         )}
 
         {/* 動的セット表示 */}
@@ -113,47 +126,55 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             {state.showBoundaries && setIndex > 0 && (
               <div 
                 id={`boundary-set-${side}-${set.setNumber}`}
-                className="w-full h-1 bg-red-500 opacity-70" 
-                       style={{ pointerEvents: 'none' }} />
-                )}
+                className="w-full bg-red-500 opacity-70" 
+                style={{ 
+                  pointerEvents: 'none',
+                  height: '5px' // 🔥 改善: セット間境界も縮小
+                }} 
+              />
+            )}
                 
-                {/* セット本体 */}
+            {/* セット本体 */}
             <div 
               id={`set-${side}-${set.setNumber}`}
               className={`relative w-full ${setIndex === 0 ? 'measurement-set' : ''}`}>
               {set.images.map((src, imageIndex) => (
-                    <div 
+                <div 
                   key={`${set.id}-${imageIndex}`}
-                      className="relative w-full cursor-pointer"
+                  className="relative w-full cursor-pointer"
                   onClick={() => handleDebugClick(set.setNumber, imageIndex, src)}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
                     handleDebugClick(set.setNumber, imageIndex, src);
-                      }}
-                    >
-                      <img 
-                        src={src} 
+                  }}
+                >
+                  <img 
+                    src={src} 
                     alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
-                        className="w-full h-auto block"
+                    className="w-full h-auto block"
                     loading={setIndex === 0 ? "eager" : "lazy"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                      // 画像要素クリックログは削除（頻度が高すぎるため）
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleDebugClick(set.setNumber, imageIndex, src);
-                        }}
-                      />
-                    </div>
-                  ))}
+                    }}
+                  />
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
         ))}
 
         {/* Step 4完了後: 下端境界線（最後のセットの後） */}
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id={`boundary-bottom-${side}`}
-            className="w-full h-1 bg-red-500 opacity-50" 
-               style={{ pointerEvents: 'none', height: '20px', marginTop: '-19px' }} />
+            className="w-full bg-red-500 opacity-50" 
+            style={{ 
+              pointerEvents: 'none', 
+              height: '10px', // 🔥 改善: 境界要素のサイズを縮小
+              marginTop: '-9px' 
+            }} 
+          />
         )}
       </div>
     </div>
