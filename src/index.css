@@ -211,3 +211,12 @@ line-height: 150%;
 /* Chrome, Safari, Opera */
   }
 }
+
+/* スクロールバーを非表示にするためのユーティリティクラス */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
