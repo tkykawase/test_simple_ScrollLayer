@@ -20,6 +20,12 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const isUpdatingSetsRef = useRef(false);
   const pendingBoundaryCrossRef = useRef<{ boundaryId: string; direction: 'up' | 'down' } | null>(null);
   const scrollAdjustmentRef = useRef<{ direction: 'up' | 'down' } | null>(null);
+  
+  // 🔥 追加: 境界要素の無限ロード防止機能
+  const lastBoundaryTriggerRef = useRef<{ [key: string]: number }>({});
+  const BOUNDARY_COOLDOWN = 500; // 500ms のクールダウン時間
+  const consecutiveTriggerCountRef = useRef<{ [key: string]: number }>({});
+  const MAX_CONSECUTIVE_TRIGGERS = 3; // 連続トリガーの最大回数
 
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
@@ -57,15 +63,46 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     handleImageClick(setIndex, imageIndex, src);
   };
 
+  // 🔥 改善: 境界要素の無限ロード防止機能付きハンドラー
   const handleBoundaryCross = (boundaryId: string, direction: 'up' | 'down') => {
+    const now = Date.now();
+    const lastTrigger = lastBoundaryTriggerRef.current[boundaryId] || 0;
+    const timeSinceLastTrigger = now - lastTrigger;
+
+    // クールダウン期間中は処理をスキップ
+    if (timeSinceLastTrigger < BOUNDARY_COOLDOWN) {
+      logDebug(`⏳ 境界要素クールダウン中: [${boundaryId}] (残り${BOUNDARY_COOLDOWN - timeSinceLastTrigger}ms)`);
+      return;
+    }
+
+    // 連続トリガー回数をチェック
+    const consecutiveCount = consecutiveTriggerCountRef.current[boundaryId] || 0;
+    if (consecutiveCount >= MAX_CONSECUTIVE_TRIGGERS) {
+      logDebug(`🚫 境界要素の連続トリガー制限: [${boundaryId}] (${consecutiveCount}回)`);
+      // 制限をリセットするために長めのクールダウンを設定
+      lastBoundaryTriggerRef.current[boundaryId] = now + BOUNDARY_COOLDOWN * 3;
+      consecutiveTriggerCountRef.current[boundaryId] = 0;
+      return;
+    }
+
     if (isProcessingRef.current) {
       logDebug(`⏳ 処理中、イベントを保留: [${boundaryId}]`);
       pendingBoundaryCrossRef.current = { boundaryId, direction };
       return;
     }
+
+    // 処理実行
     isProcessingRef.current = true;
-    lastProcessTimeRef.current = Date.now();
-    logDebug(`🔄 境界線通過処理実行: [${boundaryId}]`);
+    lastProcessTimeRef.current = now;
+    lastBoundaryTriggerRef.current[boundaryId] = now;
+    consecutiveTriggerCountRef.current[boundaryId] = consecutiveCount + 1;
+    
+    logDebug(`🔄 境界線通過処理実行: [${boundaryId}] (${consecutiveCount + 1}回目)`, {
+      direction,
+      timeSinceLastTrigger,
+      consecutiveCount: consecutiveCount + 1
+    });
+    
     isUpdatingSetsRef.current = true;
 
     // スクロール位置補正のためのフラグをセット
@@ -76,9 +113,14 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     } else {
       actions.addSetToBottomAndRemoveFromTop();
     }
+
     setTimeout(() => {
       isProcessingRef.current = false;
       logDebug(`✅ 処理完了フラグリセット: [${boundaryId}]`);
+      
+      // 成功した場合は連続カウンターをリセット
+      consecutiveTriggerCountRef.current[boundaryId] = 0;
+      
       if (pendingBoundaryCrossRef.current) {
         logDebug(`🔄 保留イベントを実行: [${pendingBoundaryCrossRef.current.boundaryId}]`);
         const { boundaryId: pendingId, direction: pendingDir } = pendingBoundaryCrossRef.current;
@@ -86,6 +128,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
         handleBoundaryCross(pendingId, pendingDir);
       }
     }, 200);
+    
     setTimeout(() => {
       isUpdatingSetsRef.current = false;
     }, 100);
@@ -129,32 +172,48 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     }
   }, [state.currentStep, scrollToCenter, logDebug]);
 
+  // 🔥 改善: IntersectionObserverの設定を最適化
   useEffect(() => {
     if (state.currentStep !== 'completed') return;
+    
     if (!observerRef.current) {
       observerRef.current = new IntersectionObserver(
         (entries) => {
           if (!canObserverLogRef.current) return;
           const scrollContainer = contentRef.current;
           if (!scrollContainer) return;
+          
           entries.forEach((entry) => {
             const boundaryId = entry.target.id;
             const direction = getScrollDirection();
-            if (entry.isIntersecting) {
+            
+            // 🔥 改善: より厳密な交差判定
+            const isActuallyIntersecting = entry.isIntersecting && entry.intersectionRatio > 0;
+            
+            if (isActuallyIntersecting) {
               if (boundaryId === `boundary-top-${side}` && (direction === 'up' || scrollContainer.scrollTop < 10)) {
-                logDebug(`🎯 接触 -> 境界 [${boundaryId}] (上方向)`);
+                logDebug(`🎯 接触 -> 境界 [${boundaryId}] (上方向)`, {
+                  intersectionRatio: entry.intersectionRatio,
+                  scrollTop: scrollContainer.scrollTop
+                });
                 handleBoundaryCross(boundaryId, 'up');
               } else if (boundaryId === `boundary-bottom-${side}`) {
                 const isAtBottom = Math.abs(scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 10;
                 if (direction === 'down' || isAtBottom) {
-                  logDebug(`🎯 接触 -> 境界 [${boundaryId}] (下方向)`);
+                  logDebug(`🎯 接触 -> 境界 [${boundaryId}] (下方向)`, {
+                    intersectionRatio: entry.intersectionRatio,
+                    isAtBottom
+                  });
                   handleBoundaryCross(boundaryId, 'down');
                 }
               }
             } else {
               if (isUpdatingSetsRef.current) return;
               if (boundaryId.startsWith(`boundary-set-${side}-`) && direction) {
-                logDebug(`通過 -> 境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向) (スクロール位置: ${contentRef.current?.scrollTop || 0})`);
+                logDebug(`通過 -> 境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向)`, {
+                  scrollTop: contentRef.current?.scrollTop || 0,
+                  intersectionRatio: entry.intersectionRatio
+                });
                 handleBoundaryCross(boundaryId, direction);
               }
             }
@@ -162,16 +221,24 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
         },
         {
           root: contentRef.current,
-          threshold: 0,
-          rootMargin: '100px 0px'
+          threshold: [0, 0.1], // 🔥 改善: 複数のthresholdで精密な検知
+          rootMargin: '50px 0px' // 🔥 改善: rootMarginを縮小して過敏な反応を抑制
         }
       );
     }
+    
     const observer = observerRef.current;
     observer.disconnect();
     const boundaries = document.querySelectorAll(`[id^="boundary-"]`);
     boundaries.forEach((boundary) => observer.observe(boundary));
-    logDebug(`🔄 境界線監視を更新: ${boundaries.length}個の境界線を監視中`);
+    
+    logDebug(`🔄 境界線監視を更新: ${boundaries.length}個の境界線を監視中`, {
+      rootMargin: '50px 0px',
+      threshold: [0, 0.1],
+      cooldownTime: BOUNDARY_COOLDOWN,
+      maxConsecutive: MAX_CONSECUTIVE_TRIGGERS
+    });
+    
     return () => {
       observer.disconnect();
     };
@@ -214,4 +281,4 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     isProcessingRef,
     observerRef
   };
-}; 
+};
