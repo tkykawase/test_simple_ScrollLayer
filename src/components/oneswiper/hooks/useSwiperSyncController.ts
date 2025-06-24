@@ -87,31 +87,38 @@ export function useSwiperSyncController(options: SyncControllerOptions) {
   const { syncGroupId, layerId, skipSync = false } = options;
   // EventBusのシングルトンインスタンスをrefで保持
   const eventBus = useRef(SyncEventBus.getInstance());
-  // 最後にイベントを発行した時刻を保持
-  const lastEmitTime = useRef(0);
   // イベント発行の最小間隔（ミリ秒）- 約60FPSに制限
   const MIN_EMIT_INTERVAL = 16;
+  // 合算送信用のdeltaバッファとタイマー
+  const pendingDelta = useRef(0);
+  const sendTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // 同期イベントを発行する関数
+  // 同期イベントを発行する関数（合算方式）
   const emitSync = useCallback((delta: number) => {
-    // skipSyncが有効な場合は何もしない
     if (skipSync) return;
+    // deltaをバッファに加算
+    pendingDelta.current += delta;
 
-    const now = Date.now();
-    // スロットリング処理：最小間隔未満の場合はスキップ
-    if (now - lastEmitTime.current < MIN_EMIT_INTERVAL) return;
-
-    // 同期イベントオブジェクトの作成
-    const syncEvent: ScrollSyncEvent = {
-      delta,
-      sourceId: layerId,
-      timestamp: now,
-      syncGroupId
-    };
-
-    // イベントの発行とタイムスタンプの更新
-    eventBus.current.publish(syncEvent);
-    lastEmitTime.current = now;
+    // 送信タイマーが未稼働なら起動
+    if (!sendTimer.current) {
+      sendTimer.current = setTimeout(() => {
+        // 合算deltaを送信
+        const now = Date.now();
+        const totalDelta = pendingDelta.current;
+        if (totalDelta !== 0) {
+          const syncEvent: ScrollSyncEvent = {
+            delta: totalDelta,
+            sourceId: layerId,
+            timestamp: now,
+            syncGroupId
+          };
+          eventBus.current.publish(syncEvent);
+        }
+        // バッファとタイマーをリセット
+        pendingDelta.current = 0;
+        sendTimer.current = null;
+      }, MIN_EMIT_INTERVAL);
+    }
   }, [syncGroupId, layerId, skipSync]);
 
   // 他のレイヤーからの同期イベントを購読する関数

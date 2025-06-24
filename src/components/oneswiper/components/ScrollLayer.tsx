@@ -67,8 +67,8 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   useEffect(() => {
     const unsubscribe = onSync((event) => {
       // event.delta を使って自分のスクロール・スワイパーを更新
-      onWheelDelta(event.delta);
-      logDebug('🔄 ScrollLayer: 同期イベント受信', { delta: event.delta, from: event.sourceId });
+      onWheelDelta(-event.delta);
+      logDebug('🔄 ScrollLayer: 同期イベント受信', { delta: -event.delta, from: event.sourceId });
     });
     return unsubscribe;
   }, [onSync, onWheelDelta, logDebug]);
@@ -82,6 +82,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     
     if (deltaY !== 0) {
       onWheelDelta(deltaY);
+      emitSync(deltaY); // オートスクロールも同期伝搬
       logDebug('↕️ ScrollLayer: ネイティブスクロール検知', { deltaY });
     }
 
@@ -92,7 +93,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     scrollableContentRef.current.scrollTop = newScrollTop;
     lastScrollTopRef.current = newScrollTop;
 
-  }, [isEnabled, onWheelDelta, logDebug]);
+  }, [isEnabled, onWheelDelta, logDebug, emitSync]);
 
   // イベントリスナーの設定とクリーンアップ
   useEffect(() => {

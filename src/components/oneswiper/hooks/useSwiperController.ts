@@ -19,6 +19,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isUpdatingSetsRef = useRef(false);
   const pendingBoundaryCrossRef = useRef<{ boundaryId: string; direction: 'up' | 'down' } | null>(null);
+  const scrollAdjustmentRef = useRef<{ direction: 'up' | 'down' } | null>(null);
 
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
@@ -66,6 +67,10 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     lastProcessTimeRef.current = Date.now();
     logDebug(`🔄 境界線通過処理実行: [${boundaryId}]`);
     isUpdatingSetsRef.current = true;
+
+    // スクロール位置補正のためのフラグをセット
+    scrollAdjustmentRef.current = { direction };
+
     if (direction === 'up') {
       actions.addSetToTopAndRemoveFromBottom();
     } else {
@@ -171,6 +176,30 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
       observer.disconnect();
     };
   }, [state.currentSets, state.currentStep, side]);
+
+  // 無限スクロールの暴走を防ぐため、セット追加後にスクロール位置を補正する
+  useEffect(() => {
+    if (scrollAdjustmentRef.current?.direction && contentRef.current && state.setHeight > 0) {
+      const { direction } = scrollAdjustmentRef.current;
+      const { setHeight } = state;
+      const scrollContainer = contentRef.current;
+
+      if (direction === 'up') {
+        // 上にセットが追加された場合、セットの高さ分だけ下にスクロールして視点を維持
+        const previousScrollTop = scrollContainer.scrollTop;
+        scrollContainer.scrollTop = previousScrollTop + setHeight;
+        logDebug(`↕️ スクロール位置補正 (上追加): +${setHeight}px`, { from: previousScrollTop, to: scrollContainer.scrollTop });
+      } else {
+        // 下にセットが追加された場合（＝上からセットが削除された）、セットの高さ分だけ上にスクロール
+        const previousScrollTop = scrollContainer.scrollTop;
+        scrollContainer.scrollTop = previousScrollTop - setHeight;
+        logDebug(`↕️ スクロール位置補正 (下追加): -${setHeight}px`, { from: previousScrollTop, to: scrollContainer.scrollTop });
+      }
+
+      // 補正が完了したらフラグをリセット
+      scrollAdjustmentRef.current = null;
+    }
+  }, [state.currentSets, state.setHeight, contentRef]);
 
   return {
     state,
