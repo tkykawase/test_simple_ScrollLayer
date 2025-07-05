@@ -138,6 +138,18 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
           pointerEvents: 'auto' // 常にクリックイベントを有効にする
         }}
       >
+        {/* Step 4完了後: 上端境界線（最初のセットの前） */}
+        {state.showBoundaries && state.currentStep === 'completed' && (
+          <div 
+            id={`boundary-top-${side}`}
+            className="w-full bg-red-500 opacity-50" 
+            style={{ 
+              pointerEvents: 'none', 
+              height: '30px'
+            }} 
+          />
+        )}
+
         {/* 動的セット表示 */}
         {state.currentSets.map((set, setIndex) => (
           <div key={`set-container-${set.id}`}>
@@ -151,37 +163,49 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   height: '5px' // 🔥 改善: セット間境界も縮小
                 }} 
               />
-                )}
+            )}
                 
-                {/* セット本体 */}
+            {/* セット本体 */}
             <div 
               id={`set-${side}-${set.setNumber}`}
               className={`relative w-full ${setIndex === 0 ? 'measurement-set' : ''}`}>
               {set.images.map((src, imageIndex) => (
-                    <div 
+                <div 
                   key={`${set.id}-${imageIndex}`}
-                      className="relative w-full cursor-pointer"
+                  className="relative w-full cursor-pointer"
                   onClick={() => handleDebugClick(set.setNumber, imageIndex, src)}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
                     handleDebugClick(set.setNumber, imageIndex, src);
-                      }}
-                    >
-                      <img 
-                        src={src} 
+                  }}
+                >
+                  <img 
+                    src={src} 
                     alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
-                        className="w-full h-auto block"
+                    className="w-full h-auto block"
                     loading={setIndex === 0 ? "eager" : "lazy"}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleDebugClick(set.setNumber, imageIndex, src);
-                        }}
-                      />
-                    </div>
-                  ))}
+                    }}
+                  />
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
         ))}
+
+        {/* Step 4完了後: 下端境界線（最後のセットの後） */}
+        {state.showBoundaries && state.currentStep === 'completed' && (
+          <div 
+            id={`boundary-bottom-${side}`}
+            className="w-full bg-red-500 opacity-50" 
+            style={{ 
+              pointerEvents: 'none', 
+              height: '30px'
+            }} 
+          />
+        )}
       </div>
     </div>
   );
