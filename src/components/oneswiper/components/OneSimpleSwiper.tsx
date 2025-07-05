@@ -1,5 +1,6 @@
 import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
+import { useEffect } from 'react';
 
 interface OneSimpleSwiperProps {
   images: string[];
@@ -20,6 +21,21 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
     isProcessingRef,
     observerRef
   } = useSwiperController(images, side);
+
+  // スクロール位置を定期的にコンソールに出力（必ずトップレベルで呼ぶ）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (contentRef.current) {
+        const scrollTop = Math.round(contentRef.current.scrollTop);
+        const clientHeight = Math.round(contentRef.current.clientHeight);
+        const scrollHeight = Math.round(contentRef.current.scrollHeight);
+        console.log(
+          `[${side}] 表示位置: scrollTop=${scrollTop} px, clientHeight=${clientHeight} px, scrollHeight=${scrollHeight} px, 表示範囲: ${scrollTop} ~ ${scrollTop + clientHeight} px`
+        );
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [contentRef, side]);
 
   // ローディング中
   if (state.isLoading) {
@@ -67,6 +83,22 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
           <div>ScrollLayer: {state.currentStep === 'completed' ? '✅ 有効' : '❌ 待機'}</div>
           <div>クリック有効: ✅</div>
           <div className="border-t border-gray-600 mt-2 pt-2">
+            <div className="text-pink-400">🪟 スクロール状態</div>
+            <div>scrollTop: {contentRef.current ? Math.round(contentRef.current.scrollTop) : 'N/A'} px</div>
+            <div>clientHeight: {contentRef.current ? Math.round(contentRef.current.clientHeight) : 'N/A'} px</div>
+            <div>scrollHeight: {contentRef.current ? Math.round(contentRef.current.scrollHeight) : 'N/A'} px</div>
+            <div>表示範囲: {contentRef.current ? `${Math.round(contentRef.current.scrollTop)} ~ ${Math.round(contentRef.current.scrollTop + contentRef.current.clientHeight)}` : 'N/A'} px</div>
+            <div>端判定: {
+              contentRef.current
+                ? (contentRef.current.scrollTop <= 0
+                    ? '⬆️ 上端'
+                    : (contentRef.current.scrollTop + contentRef.current.clientHeight >= contentRef.current.scrollHeight - 1
+                        ? '⬇️ 下端'
+                        : '◀️ 中間'))
+                : 'N/A'
+            }</div>
+          </div>
+          <div className="border-t border-gray-600 mt-2 pt-2">
             <div className="text-yellow-400">🔄 制御状態</div>
             <div>処理中: {isProcessingRef.current ? '⏳ 処理中' : '✅ 待機中'}</div>
             <div>スクロール位置: {Math.round(debugScrollTop)}px</div>
@@ -106,19 +138,6 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
           pointerEvents: 'auto' // 常にクリックイベントを有効にする
         }}
       >
-        {/* Step 4完了後: 上端境界線（最初のセットの前） */}
-        {state.showBoundaries && state.currentStep === 'completed' && (
-          <div 
-            id={`boundary-top-${side}`}
-            className="w-full bg-red-500 opacity-50" 
-            style={{ 
-              pointerEvents: 'none', 
-              height: '10px', // 🔥 改善: 境界要素のサイズを縮小
-              marginBottom: '-9px' 
-            }} 
-          />
-        )}
-
         {/* 動的セット表示 */}
         {state.currentSets.map((set, setIndex) => (
           <div key={`set-container-${set.id}`}>
@@ -163,19 +182,6 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             </div>
           </div>
         ))}
-
-        {/* Step 4完了後: 下端境界線（最後のセットの後） */}
-        {state.showBoundaries && state.currentStep === 'completed' && (
-          <div 
-            id={`boundary-bottom-${side}`}
-            className="w-full bg-red-500 opacity-50" 
-            style={{ 
-              pointerEvents: 'none', 
-              height: '10px', // 🔥 改善: 境界要素のサイズを縮小
-              marginTop: '-9px' 
-            }} 
-          />
-        )}
       </div>
     </div>
   );
