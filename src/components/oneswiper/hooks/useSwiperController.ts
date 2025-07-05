@@ -32,8 +32,9 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const lastBoundaryCheckTimeRef = useRef(Date.now());
   const isProcessingTopBoundaryRef = useRef(false);
   const isProcessingBottomBoundaryRef = useRef(false);
-  const BOUNDARY_VISIBLE_THRESHOLD = 100; // 200ms見え続けたら発火（500msから短縮）
+  const BOUNDARY_VISIBLE_THRESHOLD = 100; // 100ms見え続けたら発火（500msから短縮）
   const BOUNDARY_CHECK_INTERVAL = 100; // 100ms間隔でチェック
+  const ROOT_MARGIN = '50px 0px'; // IntersectionObserverのrootMargin
 
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
@@ -350,7 +351,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
         {
           root: contentRef.current,
           threshold: [0, 0.1], // 🔥 改善: 複数のthresholdで精密な検知
-          rootMargin: '50px 0px' // 🔥 改善: rootMarginを縮小して過敏な反応を抑制
+          rootMargin: ROOT_MARGIN // 🔥 改善: rootMarginを縮小して過敏な反応を抑制
         }
       );
     }
@@ -361,7 +362,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     boundaries.forEach((boundary) => observer.observe(boundary));
     
     logDebug(`🔄 境界線監視を更新: ${boundaries.length}個の境界線を監視中`, {
-      rootMargin: '50px 0px',
+      rootMargin: ROOT_MARGIN,
       threshold: [0, 0.1],
       cooldownTime: BOUNDARY_COOLDOWN,
       maxConsecutive: MAX_CONSECUTIVE_TRIGGERS

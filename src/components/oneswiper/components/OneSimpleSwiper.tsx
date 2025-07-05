@@ -142,10 +142,10 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id={`boundary-top-${side}`}
-            className="w-full bg-red-500 opacity-50" 
+            className="w-full bg-gray-700 opacity-50" 
             style={{ 
               pointerEvents: 'none', 
-              height: '30px'
+              height: '1px'
             }} 
           />
         )}
@@ -157,10 +157,10 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             {state.showBoundaries && setIndex > 0 && (
               <div 
                 id={`boundary-set-${side}-${set.setNumber}`}
-                className="w-full bg-red-500 opacity-70" 
+                className="w-full bg-gray-700 opacity-70" 
                 style={{ 
                   pointerEvents: 'none',
-                  height: '5px' // 🔥 改善: セット間境界も縮小
+                  height: '1px'
                 }} 
               />
             )}
@@ -199,10 +199,10 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
         {state.showBoundaries && state.currentStep === 'completed' && (
           <div 
             id={`boundary-bottom-${side}`}
-            className="w-full bg-red-500 opacity-50" 
+            className="w-full bg-gray-700 opacity-50" 
             style={{ 
               pointerEvents: 'none', 
-              height: '30px'
+              height: '1px'
             }} 
           />
         )}
