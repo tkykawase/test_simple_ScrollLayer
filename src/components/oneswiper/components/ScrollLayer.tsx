@@ -21,6 +21,10 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const accumulatedDeltaRef = useRef(0);
   const lastScrollTopRef = useRef(0); // 最後のスクロール位置を追跡
+  const isScrollingRef = useRef(false); // スクロール中かどうか
+  const scrollEndTimeoutRef = useRef<NodeJS.Timeout | null>(null); // スクロール終了タイマー
+  const isSyncScrollingRef = useRef(false); // 同期スクロール中かどうか
+  const syncScrollEndTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 同期スクロール終了タイマー
 
   // --- 追加: 同期コントローラー ---
   const { emitSync, onSync } = useSwiperSyncController({
@@ -68,7 +72,19 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     const unsubscribe = onSync((event) => {
       // event.delta を使って自分のスクロール・スワイパーを更新
       onWheelDelta(-event.delta);
-      logDebug('🔄 ScrollLayer: 同期イベント受信', { delta: -event.delta, from: event.sourceId });
+      // 同期スクロール開始時のみログ
+      if (!isSyncScrollingRef.current) {
+        isSyncScrollingRef.current = true;
+        logDebug('🔄 ScrollLayer: 同期スクロール開始', { from: event.sourceId });
+      }
+      // 同期スクロール終了タイマーをリセット
+      if (syncScrollEndTimeoutRef.current) {
+        clearTimeout(syncScrollEndTimeoutRef.current);
+      }
+      syncScrollEndTimeoutRef.current = setTimeout(() => {
+        isSyncScrollingRef.current = false;
+        logDebug('🔄 ScrollLayer: 同期スクロール終了', { from: event.sourceId });
+      }, 200);
     });
     return unsubscribe;
   }, [onSync, onWheelDelta, logDebug]);
@@ -83,7 +99,19 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     if (deltaY !== 0) {
       onWheelDelta(deltaY);
       emitSync(deltaY); // オートスクロールも同期伝搬
-      logDebug('↕️ ScrollLayer: ネイティブスクロール検知', { deltaY });
+      // スクロール開始時のみログ
+      if (!isScrollingRef.current) {
+        isScrollingRef.current = true;
+        logDebug('↕️ ScrollLayer: ネイティブスクロール開始', { deltaY });
+      }
+      // スクロール終了タイマーをリセット
+      if (scrollEndTimeoutRef.current) {
+        clearTimeout(scrollEndTimeoutRef.current);
+      }
+      scrollEndTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+        logDebug('↕️ ScrollLayer: ネイティブスクロール終了');
+      }, 200);
     }
 
     // スクロール位置を常に中央にリセットし、擬似的な無限スクロールを実現
@@ -122,6 +150,12 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       }
       if (scrollableElement) {
         scrollableElement.removeEventListener('scroll', handleNativeScroll);
+      }
+      if (scrollEndTimeoutRef.current) {
+        clearTimeout(scrollEndTimeoutRef.current);
+      }
+      if (syncScrollEndTimeoutRef.current) {
+        clearTimeout(syncScrollEndTimeoutRef.current);
       }
       if (wheelTimeoutRef.current) {
         clearTimeout(wheelTimeoutRef.current);

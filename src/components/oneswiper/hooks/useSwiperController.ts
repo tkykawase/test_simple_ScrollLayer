@@ -18,7 +18,6 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const lastProcessTimeRef = useRef(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isUpdatingSetsRef = useRef(false);
-  const pendingBoundaryCrossRef = useRef<{ boundaryId: string; direction: 'up' | 'down' } | null>(null);
   const scrollAdjustmentRef = useRef<{ direction: 'up' | 'down' } | null>(null);
   
   // 🔥 追加: 境界要素の無限ロード防止機能
@@ -27,6 +26,15 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const consecutiveTriggerCountRef = useRef<{ [key: string]: number }>({});
   const MAX_CONSECUTIVE_TRIGGERS = 3; // 連続トリガーの最大回数
 
+  // 🔥 追加: 端境界の可視時間監視機能
+  const topBoundaryVisibleTimeRef = useRef(0);
+  const bottomBoundaryVisibleTimeRef = useRef(0);
+  const lastBoundaryCheckTimeRef = useRef(Date.now());
+  const isProcessingTopBoundaryRef = useRef(false);
+  const isProcessingBottomBoundaryRef = useRef(false);
+  const BOUNDARY_VISIBLE_THRESHOLD = 100; // 100ms見え続けたら発火（500msから短縮）
+  const BOUNDARY_CHECK_INTERVAL = 100; // 100ms間隔でチェック
+  const ROOT_MARGIN = '50px 0px'; // IntersectionObserverのrootMargin
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(message, data);
@@ -85,9 +93,9 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
       return;
     }
 
+    // 🔥 変更: 他の処理中はスキップ（保留しない）
     if (isProcessingRef.current) {
-      logDebug(`⏳ 処理中、イベントを保留: [${boundaryId}]`);
-      pendingBoundaryCrossRef.current = { boundaryId, direction };
+      logDebug(`⏳ 処理中、スキップ: [${boundaryId}]`);
       return;
     }
 
@@ -120,13 +128,104 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
       
       // 成功した場合は連続カウンターをリセット
       consecutiveTriggerCountRef.current[boundaryId] = 0;
-      
-      if (pendingBoundaryCrossRef.current) {
-        logDebug(`🔄 保留イベントを実行: [${pendingBoundaryCrossRef.current.boundaryId}]`);
-        const { boundaryId: pendingId, direction: pendingDir } = pendingBoundaryCrossRef.current;
-        pendingBoundaryCrossRef.current = null;
-        handleBoundaryCross(pendingId, pendingDir);
+    }, 200);
+    
+    setTimeout(() => {
+      isUpdatingSetsRef.current = false;
+    }, 100);
+  };
+
+  // 🔥 追加: 端境界の可視時間監視機能
+  const checkBoundaryVisibility = () => {
+    if (!contentRef.current || state.currentStep !== 'completed') return;
+    
+    const now = Date.now();
+    const deltaTime = now - lastBoundaryCheckTimeRef.current;
+    lastBoundaryCheckTimeRef.current = now;
+    
+    const scrollContainer = contentRef.current;
+    const scrollTop = scrollContainer.scrollTop;
+    const scrollHeight = scrollContainer.scrollHeight;
+    const clientHeight = scrollContainer.clientHeight;
+    
+    // 上端境界の可視性チェック
+    const isAtTop = scrollTop < 100;
+    if (isAtTop) {
+      topBoundaryVisibleTimeRef.current += deltaTime;
+      if (topBoundaryVisibleTimeRef.current > BOUNDARY_VISIBLE_THRESHOLD && !isProcessingTopBoundaryRef.current) {
+        logDebug(`⏰ 上端境界が${BOUNDARY_VISIBLE_THRESHOLD}ms見え続けました`, {
+          visibleTime: topBoundaryVisibleTimeRef.current,
+          scrollTop,
+          scrollHeight,
+          clientHeight
+        });
+        handleTopBoundaryReached();
+        topBoundaryVisibleTimeRef.current = 0; // リセット
       }
+    } else {
+      topBoundaryVisibleTimeRef.current = 0; // 見えなくなったらリセット
+    }
+    
+    // 下端境界の可視性チェック
+    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 100;
+    if (isAtBottom) {
+      bottomBoundaryVisibleTimeRef.current += deltaTime;
+      if (bottomBoundaryVisibleTimeRef.current > BOUNDARY_VISIBLE_THRESHOLD && !isProcessingBottomBoundaryRef.current) {
+        logDebug(`⏰ 下端境界が${BOUNDARY_VISIBLE_THRESHOLD}ms見え続けました`, {
+          visibleTime: bottomBoundaryVisibleTimeRef.current,
+          scrollTop,
+          scrollHeight,
+          clientHeight
+        });
+        handleBottomBoundaryReached();
+        bottomBoundaryVisibleTimeRef.current = 0; // リセット
+      }
+    } else {
+      bottomBoundaryVisibleTimeRef.current = 0; // 見えなくなったらリセット
+    }
+  };
+
+  // 🔥 追加: 上端境界到達ハンドラー
+  const handleTopBoundaryReached = () => {
+    if (isProcessingTopBoundaryRef.current) {
+      logDebug(`⏳ 上端境界処理中、スキップ`);
+      return;
+    }
+    
+    isProcessingTopBoundaryRef.current = true;
+    logDebug(`🔄 上端境界到達処理開始`);
+    
+    isUpdatingSetsRef.current = true;
+    scrollAdjustmentRef.current = { direction: 'up' };
+    actions.addSetToTopAndRemoveFromBottom();
+    
+    setTimeout(() => {
+      isProcessingTopBoundaryRef.current = false;
+      logDebug(`✅ 上端境界処理完了`);
+    }, 200);
+    
+    setTimeout(() => {
+      isUpdatingSetsRef.current = false;
+    }, 100);
+  };
+
+  // 🔥 追加: 下端境界到達ハンドラー
+  const handleBottomBoundaryReached = () => {
+    if (isProcessingBottomBoundaryRef.current) {
+      logDebug(`⏳ 下端境界処理中、スキップ`);
+      return;
+    }
+    
+    isProcessingBottomBoundaryRef.current = true;
+    logDebug(`🔄 下端境界到達処理開始`);
+    
+    isUpdatingSetsRef.current = true;
+    scrollAdjustmentRef.current = { direction: 'down' };
+    actions.addSetToBottomAndRemoveFromTop();
+    
+    setTimeout(() => {
+      isProcessingBottomBoundaryRef.current = false;
+      logDebug(`✅ 下端境界処理完了`);
     }, 200);
     
     setTimeout(() => {
@@ -190,27 +289,57 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
             // 🔥 改善: より厳密な交差判定
             const isActuallyIntersecting = entry.isIntersecting && entry.intersectionRatio > 0;
             
+            // 端境界のデバッグ情報（処理は行わない）
+            if (boundaryId === `boundary-top-${side}` || boundaryId === `boundary-bottom-${side}`) {
+              const scrollTop = scrollContainer.scrollTop;
+              const scrollHeight = scrollContainer.scrollHeight;
+              const clientHeight = scrollContainer.clientHeight;
+              const isAtTop = scrollTop < 10;
+              const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+              
+              logDebug(`🔍 端境界デバッグ [${boundaryId}]`, {
+                isIntersecting: entry.isIntersecting,
+                intersectionRatio: entry.intersectionRatio,
+                isActuallyIntersecting,
+                scrollTop,
+                scrollHeight,
+                clientHeight,
+                isAtTop,
+                isAtBottom,
+                direction: direction || '静止'
+              });
+            }
+            
+            // 🔥 変更: 端境界はIntersectionObserverでは処理しない（可視時間監視に委譲）
             if (isActuallyIntersecting) {
-              if (boundaryId === `boundary-top-${side}` && (direction === 'up' || scrollContainer.scrollTop < 10)) {
-                logDebug(`🎯 接触 -> 境界 [${boundaryId}] (上方向)`, {
-                  intersectionRatio: entry.intersectionRatio,
-                  scrollTop: scrollContainer.scrollTop
+              // 🔥 追加: 端境界処理中はセット間境界の処理をスキップ
+              const isProcessingBoundary = isProcessingTopBoundaryRef.current || isProcessingBottomBoundaryRef.current;
+              if (isProcessingBoundary) {
+                logDebug(`⏳ 端境界処理中、セット間境界をスキップ: [${boundaryId}]`);
+                return;
+              }
+              
+              if (boundaryId.startsWith(`boundary-set-${side}-`) && direction) {
+                logDebug(`通過 -> セット境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向)`, {
+                  scrollTop: contentRef.current?.scrollTop || 0,
+                  intersectionRatio: entry.intersectionRatio
                 });
-                handleBoundaryCross(boundaryId, 'up');
-              } else if (boundaryId === `boundary-bottom-${side}`) {
-                const isAtBottom = Math.abs(scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 10;
-                if (direction === 'down' || isAtBottom) {
-                  logDebug(`🎯 接触 -> 境界 [${boundaryId}] (下方向)`, {
-                    intersectionRatio: entry.intersectionRatio,
-                    isAtBottom
-                  });
-                  handleBoundaryCross(boundaryId, 'down');
-                }
+                handleBoundaryCross(boundaryId, direction);
               }
             } else {
+              // 端境界は「到達」のみで「離脱」は処理しない
               if (isUpdatingSetsRef.current) return;
+              
+              // 🔥 追加: 端境界処理中はセット間境界の処理をスキップ
+              const isProcessingBoundary = isProcessingTopBoundaryRef.current || isProcessingBottomBoundaryRef.current;
+              if (isProcessingBoundary) {
+                logDebug(`⏳ 端境界処理中、セット間境界をスキップ: [${boundaryId}]`);
+                return;
+              }
+              
               if (boundaryId.startsWith(`boundary-set-${side}-`) && direction) {
-                logDebug(`通過 -> 境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向)`, {
+                logDebug(`通過 -> セット境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向)`, {
+
                   scrollTop: contentRef.current?.scrollTop || 0,
                   intersectionRatio: entry.intersectionRatio
                 });
@@ -222,7 +351,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
         {
           root: contentRef.current,
           threshold: [0, 0.1], // 🔥 改善: 複数のthresholdで精密な検知
-          rootMargin: '50px 0px' // 🔥 改善: rootMarginを縮小して過敏な反応を抑制
+          rootMargin: ROOT_MARGIN // 🔥 改善: rootMarginを縮小して過敏な反応を抑
         }
       );
     }
@@ -233,7 +362,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     boundaries.forEach((boundary) => observer.observe(boundary));
     
     logDebug(`🔄 境界線監視を更新: ${boundaries.length}個の境界線を監視中`, {
-      rootMargin: '50px 0px',
+      rootMargin: ROOT_MARGIN,
       threshold: [0, 0.1],
       cooldownTime: BOUNDARY_COOLDOWN,
       maxConsecutive: MAX_CONSECUTIVE_TRIGGERS
@@ -243,6 +372,25 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
       observer.disconnect();
     };
   }, [state.currentSets, state.currentStep, side]);
+
+  // 🔥 追加: 端境界の可視時間監視を定期的に実行
+  useEffect(() => {
+    if (state.currentStep !== 'completed') return;
+    
+    const interval = setInterval(() => {
+      checkBoundaryVisibility();
+    }, BOUNDARY_CHECK_INTERVAL);
+    
+    logDebug(`⏰ 端境界可視時間監視開始`, {
+      checkInterval: BOUNDARY_CHECK_INTERVAL,
+      visibleThreshold: BOUNDARY_VISIBLE_THRESHOLD
+    });
+    
+    return () => {
+      clearInterval(interval);
+      logDebug(`⏰ 端境界可視時間監視停止`);
+    };
+  }, [state.currentStep]);
 
   // 無限スクロールの暴走を防ぐため、セット追加後にスクロール位置を補正する
   useEffect(() => {
