@@ -85,3 +85,22 @@ intersectionRatio: number;
   needsAdjustment: boolean;
   recommendedAction?: 'reposition' | 'increase_margin' | 'none';
 }
+
+export interface ImageLoaderOptions {
+  quality?: number;
+  width?: number;
+}
+
+export interface ProjectStore {
+  projects: Project[];
+  selectedTags: string[];
+  selectedImageTags: string[];
+  isDrawerOpen: boolean;
+  isGridVisible: boolean;
+  setProjects: (projects: Project[]) => void;
+  toggleTag: (tag: string) => void;
+  toggleImageTag: (tag: string) => void;
+  setDrawerOpen: (isOpen: boolean) => void;
+  toggleGridVisible: () => void;
+  setGridVisible: (isVisible: boolean) => void;
+}

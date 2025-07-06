@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { SetData, SwiperStepsState, SwiperStepsActions } from '../models/swiper-types';
 import { addSetToTopAndRemoveFromBottom, addSetToBottomAndRemoveFromTop } from '../models/swiperSetManager';
+import { getImageUrl } from '../../../lib/image-utils';
 
 // =============================
 // useSwiperSteps.ts
@@ -68,7 +69,7 @@ export const useSwiperSteps = (side: 'left' | 'right'): [SwiperStepsState, Swipe
               resolve(img);
             };
             img.onerror = () => reject(new Error(`画像読み込みエラー: ${src}`));
-            img.src = src;
+            img.src = getImageUrl(src, { width: 800, quality: 80 });
           });
         })
       );

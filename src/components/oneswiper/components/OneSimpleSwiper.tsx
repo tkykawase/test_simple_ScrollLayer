@@ -1,6 +1,7 @@
 import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
 import { useEffect } from 'react';
+import { getImageUrl } from '../../../lib/image-utils';
 
 interface OneSimpleSwiperProps {
   images: string[];
@@ -71,8 +72,8 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
 
   return (
     <div className="relative w-full h-full overflow-hidden">
-      {/* デバッグ情報 */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* デバッグ情報 - 非表示（localStorage.setItem('show_debug_ui', 'true')で表示） */}
+      {process.env.NODE_ENV === 'development' && localStorage.getItem('show_debug_ui') === 'true' && (
         <div className={`fixed top-0 ${side === 'left' ? 'left-0' : 'right-0'} bg-black/90 text-white p-3 text-xs z-50 font-mono`}>
           <div className="text-green-400">🎯 OneSimpleSwiper デバッグ</div>
           <div>現在のステップ: {state.currentStep}</div>
@@ -180,7 +181,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   }}
                 >
                   <img 
-                    src={src} 
+                    src={getImageUrl(src, { width: 800, quality: 80 })} 
                     alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
                     className="w-full h-auto block"
                     loading={setIndex === 0 ? "eager" : "lazy"}
