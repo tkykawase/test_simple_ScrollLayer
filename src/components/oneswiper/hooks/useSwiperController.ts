@@ -35,7 +35,6 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const BOUNDARY_VISIBLE_THRESHOLD = 100; // 100ms見え続けたら発火（500msから短縮）
   const BOUNDARY_CHECK_INTERVAL = 100; // 100ms間隔でチェック
   const ROOT_MARGIN = '50px 0px'; // IntersectionObserverのrootMargin
-
   const logDebug = (message: string, data?: Record<string, unknown>) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(message, data);
@@ -340,6 +339,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
               
               if (boundaryId.startsWith(`boundary-set-${side}-`) && direction) {
                 logDebug(`通過 -> セット境界 [${boundaryId}] (${direction === 'down' ? '下' : '上'}方向)`, {
+
                   scrollTop: contentRef.current?.scrollTop || 0,
                   intersectionRatio: entry.intersectionRatio
                 });
@@ -351,7 +351,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
         {
           root: contentRef.current,
           threshold: [0, 0.1], // 🔥 改善: 複数のthresholdで精密な検知
-          rootMargin: ROOT_MARGIN // 🔥 改善: rootMarginを縮小して過敏な反応を抑制
+          rootMargin: ROOT_MARGIN // 🔥 改善: rootMarginを縮小して過敏な反応を抑
         }
       );
     }

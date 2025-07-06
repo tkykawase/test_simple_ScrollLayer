@@ -145,7 +145,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             className="w-full bg-gray-700 opacity-50" 
             style={{ 
               pointerEvents: 'none', 
-              height: '1px'
+              height: '1px' 
             }} 
           />
         )}
