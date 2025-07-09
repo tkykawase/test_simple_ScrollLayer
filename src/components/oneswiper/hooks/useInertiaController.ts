@@ -1,6 +1,9 @@
 import { useRef, useCallback, useEffect } from 'react';
 
-const DAMPING_FACTOR = 0.92; // 減衰係数。1に近いほど摩擦が少ない
+const DAMPING_FACTOR = 0.8; // 減衰係数。1に近いほど摩擦が少ない
+
+// 慣性スクロールON/OFFフラグ（true: 慣性あり, false: 慣性なし）
+export const INERTIA_ENABLED = true; // ← ここをtrue/falseで即切り替え
 
 /**
  * 慣性スクロールを管理するカスタムフック
@@ -48,13 +51,23 @@ export const useInertiaController = (
    * @param force - 加える力の量（例: `e.deltaY`）
    */
   const addForce = useCallback((force: number) => {
-    velocityRef.current += force * 0.4; // 入力量を調整
+    if (!INERTIA_ENABLED) {
+      // 慣性なしで即時スクロール
+      if (contentRef.current) {
+        contentRef.current.scrollTop += force;
+        if (onScroll) {
+          onScroll(contentRef.current.scrollTop);
+        }
+      }
+      return;
+    }
+    velocityRef.current += force * 0.3; // 入力量を調整
     
     // アニメーションループが実行されていなければ開始
     if (!animationFrameRef.current) {
       animationFrameRef.current = requestAnimationFrame(animationLoop);
     }
-  }, [animationLoop]);
+  }, [animationLoop, onScroll]);
   
   /**
    * コンテンツを中央にスクロールする
@@ -96,6 +109,7 @@ export const useInertiaController = (
   return {
     contentRef,
     addForce,
-    scrollToCenter
+    scrollToCenter,
+    velocityRef
   };
 }; 

@@ -1,6 +1,6 @@
 import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { getImageUrl } from '../../../lib/image-utils';
 
 interface OneSimpleSwiperProps {
@@ -20,8 +20,41 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
     lastTotalDelta,
     handleDebugClick,
     isProcessingRef,
-    observerRef
+    observerRef,
+    velocityRef
   } = useSwiperController(images, side);
+
+  // オートスクロール速度(px/sec)を管理
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
+  const lastAutoScrollRef = useRef({ scrollTop: 0, timestamp: performance.now() });
+  const speedBufferRef = useRef<number[]>([]); // 直近Nフレームの速度バッファ
+  const N = 5; // 平均化するフレーム数
+
+  // ScrollLayerから速度を受け取るコールバック
+  const handleAutoScroll = useCallback(() => {
+    if (contentRef.current) {
+      const now = performance.now();
+      const currentScrollTop = contentRef.current.scrollTop;
+      const delta = currentScrollTop - lastAutoScrollRef.current.scrollTop;
+      const dt = now - lastAutoScrollRef.current.timestamp;
+      if (dt > 0) {
+        const speed = delta / (dt / 1000); // px/sec
+        // 速度が0.1px/sec未満は無視
+        if (Math.abs(speed) > 0.1) {
+          // バッファに追加
+          speedBufferRef.current.push(speed);
+          if (speedBufferRef.current.length > N) {
+            speedBufferRef.current.shift();
+          }
+          // 平均速度を計算
+          const avgSpeed = speedBufferRef.current.reduce((a, b) => a + b, 0) / speedBufferRef.current.length;
+          setAutoScrollSpeed(avgSpeed);
+        }
+        // 速度が0.1未満ならsetしない（前回値を維持）
+      }
+      lastAutoScrollRef.current = { scrollTop: currentScrollTop, timestamp: now };
+    }
+  }, [contentRef]);
 
   // スクロール位置を定期的にコンソールに出力（必ずトップレベルで呼ぶ）
   useEffect(() => {
@@ -98,6 +131,8 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                         : '◀️ 中間'))
                 : 'N/A'
             }</div>
+            <div className="text-cyan-400">オートスクロール速度: {Math.round(autoScrollSpeed)} px/sec</div>
+            <div className="text-cyan-400">現在の慣性: {velocityRef ? Math.round(velocityRef.current) : 0} px/frame</div>
           </div>
           <div className="border-t border-gray-600 mt-2 pt-2">
             <div className="text-yellow-400">🔄 制御状態</div>
@@ -127,6 +162,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
         onScrollEnd={setLastTotalDelta}
         height={state.setHeight}
         isEnabled={state.currentStep === 'completed' && state.setHeight > 0}
+        onAutoScroll={handleAutoScroll}
       />
 
       {/* コンテンツレイヤー */}
