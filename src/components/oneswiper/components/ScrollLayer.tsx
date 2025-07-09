@@ -7,6 +7,7 @@ interface ScrollLayerProps {
   onScrollEnd?: (totalDelta: number) => void; // スクロール終了を通知
   height?: number; // 1セットの高さ
   isEnabled?: boolean; // 有効化フラグ
+  onAutoScroll?: () => void; // オートスクロール速度取得用コールバック
 }
 
 export const ScrollLayer = React.memo(function ScrollLayer({
@@ -14,7 +15,8 @@ export const ScrollLayer = React.memo(function ScrollLayer({
   onWheelDelta,
   onScrollEnd,
   height = 0,
-  isEnabled = false
+  isEnabled = false,
+  onAutoScroll
 }: ScrollLayerProps) {
   const layerRef = useRef<HTMLDivElement>(null);
   const scrollableContentRef = useRef<HTMLDivElement>(null); // スクロール可能なコンテンツへの参照
@@ -114,6 +116,11 @@ export const ScrollLayer = React.memo(function ScrollLayer({
       }, 200);
     }
 
+    // オートスクロール速度取得用コールバックを呼ぶ
+    if (onAutoScroll) {
+      onAutoScroll();
+    }
+
     // スクロール位置を常に中央にリセットし、擬似的な無限スクロールを実現
     const scrollHeight = scrollableContentRef.current.scrollHeight;
     const clientHeight = scrollableContentRef.current.clientHeight;
@@ -121,7 +128,7 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     scrollableContentRef.current.scrollTop = newScrollTop;
     lastScrollTopRef.current = newScrollTop;
 
-  }, [isEnabled, onWheelDelta, logDebug, emitSync]);
+  }, [isEnabled, onWheelDelta, logDebug, emitSync, onAutoScroll]);
 
   // イベントリスナーの設定とクリーンアップ
   useEffect(() => {

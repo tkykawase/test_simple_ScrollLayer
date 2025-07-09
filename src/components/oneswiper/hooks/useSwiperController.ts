@@ -6,7 +6,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const [state, actions] = useSwiperSteps(side);
   const [debugScrollTop, setDebugScrollTop] = useState(0);
   const onScrollForDebug = process.env.NODE_ENV === 'development' ? setDebugScrollTop : undefined;
-  const { contentRef, addForce, scrollToCenter } = useInertiaController(
+  const { contentRef, addForce, scrollToCenter, velocityRef } = useInertiaController(
     state.currentStep === 'completed' && state.setHeight > 0,
     onScrollForDebug
   );
@@ -427,6 +427,7 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     lastTotalDelta,
     handleDebugClick,
     isProcessingRef,
-    observerRef
+    observerRef,
+    velocityRef
   };
 };
