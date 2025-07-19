@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -23,7 +24,7 @@
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
     --radius: 0.75rem;
-}
+  }
 
   .dark {
     --background: 240 10% 3.9%;
@@ -50,8 +51,8 @@
 
 @layer base {
   * {
-    @apply border-[var(--border)];
-}
+    @apply border-border;
+  }
 
   html {
     @apply no-scrollbar;
@@ -64,7 +65,7 @@
 
   body {
     @apply no-scrollbar;
-    @apply bg-[var(--background)] text-[var(--foreground)]; /* ここを修正しました */
+    @apply bg-background text-foreground;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-kerning: normal;
     letter-spacing: 0.04em;
@@ -87,17 +88,17 @@
   /* 字間が狭く見える要素はさらに補正 */
   h3, h4 {
     letter-spacing: 0.06em;
-}
+  }
 
   .text-lg.font-medium,
   .text-base.font-medium {
     letter-spacing: 0.06em;
-}
+  }
 
   .project-card-title,
   .card-title {
     letter-spacing: 0.06em;
-}
+  }
 }
 
 /* Hide scrollbar but keep functionality */
@@ -128,7 +129,7 @@
 .text-h2 {
   @apply text-3xl font-medium;
   line-height: 125%;
-letter-spacing: 0.04em;
+  letter-spacing: 0.04em;
   font-kerning: normal;
 }
 
@@ -141,7 +142,7 @@ letter-spacing: 0.04em;
 
 .text-body {
   @apply text-base;
-line-height: 150%;
+  line-height: 150%;
   letter-spacing: 0.04em;
   font-kerning: normal;
 }
@@ -171,52 +172,29 @@ line-height: 150%;
   @apply max-w-5xl mx-auto px-2 sm:px-4 lg:px-6;
 }
 
-@layer utilities {
+
+  @layer utilities {
   .text-justify {
     text-align: justify;
-}
-
-  /* Masonry styles */
-  .my-masonry-grid {
-    display: -webkit-box;
-/* Not needed if autoprefixed */
-    display: -ms-flexbox;
-/* Not needed if autoprefixed */
-    display: flex;
-    margin-left: -30px;
-/* gutter size offset */
-    width: auto;
-  }
-  .my-masonry-grid_column {
-    padding-left: 30px;
-/* gutter size */
-    background-clip: padding-box;
   }
 
-  /* Style your items */
-  .my-masonry-grid_column > div { /* change div to reference your item container i.e. <ProjectCard> */
-    margin-bottom: 30px;
+    
+/* Masonry styles */
+.my-masonry-grid {
+  display: -webkit-box; /* Not needed if autoprefixed */
+  display: -ms-flexbox; /* Not needed if autoprefixed */
+  display: flex;
+  margin-left: -30px; /* gutter size offset */
+  width: auto;
+}
+.my-masonry-grid_column {
+  padding-left: 30px; /* gutter size */
+  background-clip: padding-box;
 }
 
-  /* Hide scrollbar but keep functionality */
-  .no-scrollbar {
-    -ms-overflow-style: none;
-/* IE and Edge */
-    scrollbar-width: none;
-/* Firefox */
+/* Style your items */
+.my-masonry-grid_column > div { /* change div to reference your item container i.e. <ProjectCard> */
+  margin-bottom: 30px;
+}
+    
   }
-
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-/* Chrome, Safari, Opera */
-  }
-}
-
-/* スクロールバーを非表示にするためのユーティリティクラス */
-.hide-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}

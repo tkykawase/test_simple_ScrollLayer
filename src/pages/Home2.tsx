@@ -51,11 +51,11 @@ export const Home2: React.FC = () => {
     <div className="h-screen w-full flex">
       {/* 左側スワイパー */}
       <div className="w-1/2 h-full border-r border-gray-300">
-        <OneSimpleSwiper images={leftImages} side="left" />
+        <OneSimpleSwiper images={leftImages} side="left" projects={projects} />
       </div>
       {/* 右側スワイパー */}
       <div className="w-1/2 h-full">
-        <OneSimpleSwiper images={rightImages} side="right" />
+        <OneSimpleSwiper images={rightImages} side="right" projects={projects} />
       </div>
     </div>
   );

@@ -2,14 +2,43 @@ import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getImageUrl } from '../../../lib/image-utils';
+import type { Project } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 
 interface OneSimpleSwiperProps {
   images: string[];
   setCount?: number;
   side: 'left' | 'right';
+  projects: Project[];
 }
 
-export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCount = 5, side }) => {
+// 画像オーバーレイ用コンポーネント
+interface ImageOverlayProps {
+  title: string;
+  year: string;
+  company_name: string;
+  photographer_name: string;
+}
+
+const ImageOverlay: React.FC<ImageOverlayProps> = ({ title, year, company_name, photographer_name }) => (
+  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
+    <div className="absolute inset-0 flex flex-col justify-end p-4">
+      <div className="text-white">
+        <h3 className="text-lg font-medium">{title}</h3>
+        <p className="text-sm text-white/80">{year}</p>
+        {company_name && (
+          <p className="text-xs text-white/60">{company_name}</p>
+        )}
+        {photographer_name && (
+          <p className="text-xs text-white/60">Photo: {photographer_name}</p>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCount = 5, side, projects }) => {
+  const navigate = useNavigate();
   const {
     state,
     actions,
@@ -18,7 +47,6 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
     debugScrollTop,
     setLastTotalDelta,
     lastTotalDelta,
-    handleDebugClick,
     isProcessingRef,
     observerRef,
     velocityRef
@@ -168,7 +196,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
       {/* コンテンツレイヤー */}
       <div 
         ref={contentRef}
-        className="w-full h-full overflow-y-auto hide-scrollbar"
+        className="w-full h-full overflow-y-auto hide-scrollbar no-scrollbar"
         data-content-layer="true"
         style={{ 
           zIndex: 0,
@@ -206,28 +234,51 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
             <div 
               id={`set-${side}-${set.setNumber}`}
               className={`relative w-full ${setIndex === 0 ? 'measurement-set' : ''}`}>
-              {set.images.map((src, imageIndex) => (
-                <div 
-                  key={`${set.id}-${imageIndex}`}
-                  className="relative w-full cursor-pointer"
-                  onClick={() => handleDebugClick(set.setNumber, imageIndex, src)}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    handleDebugClick(set.setNumber, imageIndex, src);
-                  }}
-                >
-                  <img 
-                    src={getImageUrl(src, { width: 800, quality: 80 })} 
-                    alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
-                    className="w-full h-auto block"
-                    loading={setIndex === 0 ? "eager" : "lazy"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDebugClick(set.setNumber, imageIndex, src);
+              {set.images.map((src, imageIndex) => {
+                // 画像に紐づくプロジェクト情報を取得
+                const project = projects.find(p => p.project_images.some(img => img.image_url === src));
+                // 画像ごとに必要な情報をまとめる
+                const imageInfo = {
+                  imageUrl: src,
+                  projectId: project?.id ?? '',
+                  title: project?.title ?? '',
+                  year: project?.year ?? '',
+                  company_name: project?.company_name ?? '',
+                  photographer_name: project?.project_images?.find(img => img.image_url === src)?.photographer_name ?? '',
+                };
+                return (
+                  <div 
+                    key={`${set.id}-${imageIndex}`}
+                    className="relative w-full cursor-pointer"
+                    onClick={() => {
+                      if (imageInfo.projectId) {
+                        navigate(`/project/${imageInfo.projectId}`);
+                      }
                     }}
-                  />
-                </div>
-              ))}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      if (imageInfo.projectId) {
+                        navigate(`/project/${imageInfo.projectId}`);
+                      }
+                    }}
+                  >
+                    <img 
+                      src={getImageUrl(src, { width: 800, quality: 80 })} 
+                      alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
+                      className="w-full h-auto block"
+                      loading={setIndex === 0 ? "eager" : "lazy"}
+                      onClick={e => e.stopPropagation()}
+                    />
+                    {/* オーバーレイ表示をコンポーネント化 */}
+                    <ImageOverlay
+                      title={imageInfo.title}
+                      year={imageInfo.year}
+                      company_name={imageInfo.company_name}
+                      photographer_name={imageInfo.photographer_name}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
