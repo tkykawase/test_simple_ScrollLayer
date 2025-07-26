@@ -3,6 +3,8 @@ import { useProjectStore } from '@/lib/store';
 import { useProjects } from '@/hooks/use-projects';
 import { useFilterController } from '@/lib/filter-controller';
 import { OneSimpleSwiper } from '../components/oneswiper/components/OneSimpleSwiper';
+import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
 
 export const Home2: React.FC = () => {
   const { setProjects, selectedImageTags, setSelectedImageTags } = useProjectStore();
@@ -10,7 +12,7 @@ export const Home2: React.FC = () => {
   
   const filterController = useFilterController({
     projects,
-    selectedTags: [],
+    selectedTags: [],        // 追加（imageタイプでは使用しないが必須）
     selectedImageTags,
     type: 'image'
   });
@@ -48,15 +50,27 @@ export const Home2: React.FC = () => {
   }
 
   return (
+    <>
+    <Header />
     <div className="h-screen w-full flex">
       {/* 左側スワイパー */}
       <div className="w-1/2 h-full border-r border-gray-300">
-        <OneSimpleSwiper images={leftImages} side="left" />
+        <OneSimpleSwiper 
+          images={leftImages} 
+          projects={projects}
+          side="left" 
+        />
       </div>
       {/* 右側スワイパー */}
       <div className="w-1/2 h-full">
-        <OneSimpleSwiper images={rightImages} side="right" />
+        <OneSimpleSwiper 
+          images={rightImages} 
+          projects={projects}
+          side="right" 
+        />
       </div>
     </div>
+    <Footer />
+    </>
   );
 };

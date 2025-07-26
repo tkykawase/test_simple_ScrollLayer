@@ -175,11 +175,30 @@ export const ScrollLayer = React.memo(function ScrollLayer({
     return null;
   }
 
+  // クリックイベントを下層に伝搬させる
+  const handleLayerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const layer = e.currentTarget;
+    // 一時的にpointer-events: none
+    const originalPointerEvents = layer.style.pointerEvents;
+    layer.style.pointerEvents = 'none';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    layer.style.pointerEvents = originalPointerEvents;
+    if (el && el !== layer) {
+      el.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      }));
+    }
+  };
+
   return (
     <div 
       ref={layerRef}
       className="absolute inset-0 z-10" 
       style={{ pointerEvents: 'auto' }} // ホイールイベントをここで受け取る
+      onClick={handleLayerClick}
     >
       {/* 
         オートスクロール（中央クリック）を機能させるための非表示のスクロール領域。
