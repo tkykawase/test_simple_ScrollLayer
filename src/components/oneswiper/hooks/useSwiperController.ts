@@ -20,6 +20,9 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
   const isUpdatingSetsRef = useRef(false);
   const scrollAdjustmentRef = useRef<{ direction: 'up' | 'down' } | null>(null);
   
+  // 🆕 画像変更検知用の参照を追加
+  const previousImagesRef = useRef<string[]>([]);
+
   // 🔥 追加: 境界要素の無限ロード防止機能
   const lastBoundaryTriggerRef = useRef<{ [key: string]: number }>({});
   const BOUNDARY_COOLDOWN = 500; // 500ms のクールダウン時間
@@ -233,11 +236,33 @@ export const useSwiperController = (images: string[], side: 'left' | 'right') =>
     }, 100);
   };
 
+  // 🆕 修正版: 画像変更検知と初期化処理
   useEffect(() => {
+    // 画像配列の内容が変更されたかチェック
+    const imagesChanged = 
+      images.length !== previousImagesRef.current.length ||
+      images.some((img, index) => img !== previousImagesRef.current[index]);
+
+    if (images.length > 0 && imagesChanged) {
+      // 画像が変更された場合はリセットして再初期化
+      if (state.currentStep !== 'step1' || !state.isLoading) {
+        actions.reset(); // 初期化済みの場合のみリセット
+        logDebug('🔄 画像配列変更によりリセット', {
+          newImageCount: images.length,
+          previousCount: previousImagesRef.current.length,
+          side
+        });
+      }
+      
+      // 参照を更新
+      previousImagesRef.current = [...images];
+    }
+
+    // 通常の初期化処理
     if (state.currentStep === 'step1' && state.isLoading) {
       actions.initializeStep1(images);
     }
-  }, [images, state.currentStep, state.isLoading, actions]);
+  }, [images, state.currentStep, state.isLoading, actions, side]);
 
   useEffect(() => {
     if (state.currentStep === 'step2') {

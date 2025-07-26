@@ -7,6 +7,12 @@ export function AboutPage() {
     <>
       <Layout showGrid={true} fullWidth={true}>
         <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-4 md:gap-6">
+          <div className="col-span-full">
+            <hr className="border-t border-black mb-12" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-4 md:gap-6">
           <GridItem colSpan={{ default: 4, md: 4, lg: 7 }}>
             <motion.div>
               <h1 className="text-xl sm:text-2xl font-medium break-words leading-relaxed">

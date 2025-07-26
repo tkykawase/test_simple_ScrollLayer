@@ -1,3 +1,5 @@
+// src/lib/filter-controller.ts
+
 import { useCallback, useMemo } from 'react';
 import type { Project } from '@/types';
 import { getLogger } from '@/lib/logger';
@@ -41,7 +43,6 @@ export function useFilterController({
       withBothFlags: 0
     };
 
-    
     // すべてのプロジェクトの画像を分析
     projects.forEach(project => {
       project.project_images.forEach(img => {
@@ -124,53 +125,53 @@ export function useFilterController({
     }
   }, [projects, selectedTags, selectedImageTags, type]);
 
- const getFilteredImages = useCallback(() => {
-  if (type !== 'image') return [];
+  const getFilteredImages = useCallback(() => {
+    if (type !== 'image') return [];
 
-  // フィルタリング処理
-  const filteredImages = projects.flatMap(project =>
-    project.project_images
-      .filter(img => {
-        // 基本条件：アクティブステータス
-        const isActive = img.status === true;
-        
-        // Allの場合 (selectedImageTags.length === 0)
-        if (selectedImageTags.length === 0) {
-          return isActive && img.show_in_home === true;
-        }
-        
-        // タグが選択されている場合
-        // tagsがundefinedまたは空の配列でないことを確認
-        if (!img.tags || !Array.isArray(img.tags) || img.tags.length === 0) {
-          return false;
-        }
-        
-        // タグがマッチするか確認
-        return isActive && img.tags.some(tag => selectedImageTags.includes(tag));
-      })
-      .map(img => img.image_url)
-  );
+    // フィルタリング処理
+    const filteredImages = projects.flatMap(project =>
+      project.project_images
+        .filter(img => {
+          // 基本条件：アクティブステータス
+          const isActive = img.status === true;
+          
+          // Allの場合 (selectedImageTags.length === 0)
+          if (selectedImageTags.length === 0) {
+            return isActive && img.show_in_home === true;
+          }
+          
+          // タグが選択されている場合
+          // tagsがundefinedまたは空の配列でないことを確認
+          if (!img.tags || !Array.isArray(img.tags) || img.tags.length === 0) {
+            return false;
+          }
+          
+          // タグがマッチするか確認
+          return isActive && img.tags.some(tag => selectedImageTags.includes(tag));
+        })
+        .map(img => img.image_url)
+    );
 
-  // 常にシャッフル（初期表示・タグフィルタリング両方で一貫したランダム表示）
-  const resultImages = shuffleArray([...filteredImages]);
+    // 常にシャッフル（初期表示・タグフィルタリング両方で一貫したランダム表示）
+    const resultImages = shuffleArray([...filteredImages]);
 
-  logger.debug('Filtered images', {
-    selectedTags: selectedImageTags.length ? selectedImageTags : 'All',
-    resultCount: resultImages.length,
-    randomized: true
-  });
+    logger.debug('Filtered images', {
+      selectedTags: selectedImageTags.length ? selectedImageTags : 'All',
+      resultCount: resultImages.length,
+      randomized: true
+    });
 
-  return resultImages;
-}, [projects, selectedImageTags, type]);
+    return resultImages;
+  }, [projects, selectedImageTags, type]);
 
   // Memoize the filtered results
   const filteredResults = useMemo(() => ({
     projects: filterProjects(),
     images: getFilteredImages()
-  }), [projects, selectedTags, selectedImageTags, type]); // 依存配列を関数ではなく元データに変更
+  }), [projects, selectedTags, selectedImageTags, type]);
 
   return {
     filterProjects: useCallback(() => filteredResults.projects, [filteredResults]),
     getFilteredImages: useCallback(() => filteredResults.images, [filteredResults])
   };
-} 
+}

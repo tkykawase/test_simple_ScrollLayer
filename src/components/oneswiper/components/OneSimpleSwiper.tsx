@@ -134,7 +134,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
   return (
     <div className="relative w-full h-full overflow-hidden">
       {/* デバッグ情報 - 非表示（localStorage.setItem('show_debug_ui', 'true')で表示） */}
-      {process.env.NODE_ENV === 'development' && localStorage.getItem('show_debug_ui') === 'true' && (
+      {process.env.NODE_ENV === 'development' && localStorage.getItem('show_debug_ui') === 'false' && (
         <div className={`fixed top-0 ${side === 'left' ? 'left-0' : 'right-0'} bg-black/90 text-white p-3 text-xs z-50 font-mono`}>
           <div className="text-green-400">🎯 OneSimpleSwiper デバッグ</div>
           <div>現在のステップ: {state.currentStep}</div>
