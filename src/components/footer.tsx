@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useProjectStore } from "../lib/store";
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 const TAG_DISPLAY_MAP = {
   "Graphic": "Graphic",
@@ -26,13 +26,13 @@ export function Footer() {
   const location = useLocation();
   const { selectedImageTags, setSelectedImageTags } = useProjectStore();
   const isHome = location.pathname === "/";
-  const [isGridVisible, setIsGridVisible] = useState(false);
+  // const [isGridVisible, setIsGridVisible] = useState(false);
   
-  const toggleGrid = useCallback(() => {
-    const newState = !isGridVisible;
-    setIsGridVisible(newState);
-    notifyGridVisibilityChange(newState);
-  }, [isGridVisible]);
+  // const toggleGrid = useCallback(() => {
+  //   const newState = !isGridVisible;
+  //   setIsGridVisible(newState);
+  //   notifyGridVisibilityChange(newState);
+  // }, [isGridVisible]);
 
   const handleTagClick = useCallback((tag: string) => {
     setSelectedImageTags(selectedImageTags.includes(tag) ? [] : [tag]);
@@ -62,14 +62,14 @@ export function Footer() {
             <Link to="/" className="text-sm text-white hover:opacity-80 transition-opacity">
               Back to home
             </Link>
-            {process.env.NODE_ENV === 'development' && (
+            {/* {process.env.NODE_ENV === 'development' && (
               <button
                 className="text-sm text-white opacity-50 hover:opacity-100"
                 onClick={toggleGrid}
               >
                 {isGridVisible ? 'Hide Grid' : 'Show Grid'}
               </button>
-            )}
+            )} */}
           </div>
         </div>
       </footer>
@@ -93,4 +93,4 @@ export function Footer() {
       </div>
     </footer>
   );
-} 
+}
