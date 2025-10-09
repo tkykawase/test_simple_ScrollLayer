@@ -281,18 +281,24 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                         muted
                         loop
                         playsInline
+                        autoPlay
                         preload="metadata"
                         onClick={e => e.stopPropagation()}
                         onMouseEnter={(e) => {
                           const video = e.currentTarget;
-                          video.play().catch(() => {
-                            // 自動再生が失敗した場合は無視
-                          });
+                          // 既に再生中でない場合のみ再生
+                          if (video.paused) {
+                            video.play().catch(() => {
+                              // 自動再生が失敗した場合は無視
+                            });
+                          }
                         }}
                         onMouseLeave={(e) => {
                           const video = e.currentTarget;
-                          video.pause();
-                          video.currentTime = 0;
+                          // ホバー終了時は一時停止のみ（リセットしない）
+                          if (!video.paused) {
+                            video.pause();
+                          }
                         }}
                         onLoadedMetadata={(e) => {
                           const video = e.currentTarget;
@@ -313,6 +319,10 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                           if (!video.poster) {
                             video.currentTime = 0.1;
                           }
+                          // 自動再生を開始
+                          video.play().catch((error) => {
+                            console.log('自動再生が失敗しました（ブラウザの制限）:', error);
+                          });
                         }}
                         onError={(e) => {
                           console.error('動画読み込みエラー:', {
