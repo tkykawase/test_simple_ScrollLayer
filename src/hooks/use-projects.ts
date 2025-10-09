@@ -32,10 +32,7 @@ export function useProjects() {
             in_project_order,
             photographer_name,
             status,
-            tags,
-            media_type,
-            video_url,
-            thumbnail_url
+            tags
           )
         `)
         .eq('project_images.status', true)
