@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { Layout, GridRow, GridItem } from "../components/layout";
-import { getImageUrl, preloadImage } from "../lib/image-utils";
+import { getImageUrl, preloadImage, getMediaTypeFromUrl, getVideoUrl } from "../lib/image-utils";
 import { Footer } from "../components/footer";
 import { getLogger } from '../lib/logger';
 // 型定義はtypes/index.tsにProject型がある前提で調整
@@ -40,7 +40,10 @@ export function ProjectPage() {
               in_project_order,
               photographer_name,
               caption,
-              status
+              status,
+              media_type,
+              video_url,
+              thumbnail_url
             )
           `)
           .eq('id', id)
@@ -131,17 +134,36 @@ export function ProjectPage() {
                   transition={{ delay: 0.3 }}
                   className="space-y-2"
                 >
-                  <img
-                    src={getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
-                    alt={project.title}
-                    className="w-full h-auto"
-                    loading="eager"
-                    decoding="async"
-                    onError={(e) => {
-                      logger.error('Image failed to load:', { url: mainImage.image_url });
-                      e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
-                    }}
-                  />
+                  {(() => {
+                    const mediaType = mainImage.media_type || getMediaTypeFromUrl(mainImage.image_url);
+                    const videoUrl = mainImage.video_url || (mediaType === 'video' ? getVideoUrl(mainImage.image_url) : undefined);
+                    
+                    return mediaType === 'video' && videoUrl ? (
+                      <video
+                        src={videoUrl}
+                        poster={mainImage.thumbnail_url || getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
+                        className="w-full h-auto"
+                        controls
+                        preload="metadata"
+                        onError={(e) => {
+                          logger.error('Video failed to load:', { url: videoUrl });
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
+                        alt={project.title}
+                        className="w-full h-auto"
+                        loading="eager"
+                        decoding="async"
+                        onError={(e) => {
+                          logger.error('Image failed to load:', { url: mainImage.image_url });
+                          e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
+                        }}
+                      />
+                    );
+                  })()}
                   {mainImage.caption && (
                     <p className="text-xs text-muted-foreground">
                       {mainImage.caption}
@@ -156,17 +178,36 @@ export function ProjectPage() {
                     transition={{ delay: 0.4 + index * 0.1 }}
                     className="space-y-2"
                   >
-                    <img
-                      src={getImageUrl(image.image_url, { width: 1600, quality: 85 })}
-                      alt={`${project.title} - Detail ${index + 1}`}
-                      className="w-full h-auto"
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => {
-                        logger.error('Image failed to load:', { url: image.image_url });
-                        e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
-                      }}
-                    />
+                    {(() => {
+                      const mediaType = image.media_type || getMediaTypeFromUrl(image.image_url);
+                      const videoUrl = image.video_url || (mediaType === 'video' ? getVideoUrl(image.image_url) : undefined);
+                      
+                      return mediaType === 'video' && videoUrl ? (
+                        <video
+                          src={videoUrl}
+                          poster={image.thumbnail_url || getImageUrl(image.image_url, { width: 1600, quality: 85 })}
+                          className="w-full h-auto"
+                          controls
+                          preload="metadata"
+                          onError={(e) => {
+                            logger.error('Video failed to load:', { url: videoUrl });
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={getImageUrl(image.image_url, { width: 1600, quality: 85 })}
+                          alt={`${project.title} - Detail ${index + 1}`}
+                          className="w-full h-auto"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            logger.error('Image failed to load:', { url: image.image_url });
+                            e.currentTarget.src = 'https://via.placeholder.com/800x600?text=Image+Not+Found';
+                          }}
+                        />
+                      );
+                    })()}
                     {image.caption && (
                       <p className="text-xs text-muted-foreground">
                         {image.caption}

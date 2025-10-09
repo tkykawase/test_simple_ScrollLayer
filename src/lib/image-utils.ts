@@ -65,7 +65,13 @@ export const getImageUrl = (imagePath: string, options: ImageLoaderOptions = {})
       import.meta.env.VITE_SUPABASE_URL
     );
 
-    // Add transformation parameters for Supabase Storage
+    // 動画ファイルの場合は変換パラメータを追加しない
+    const mediaType = getMediaTypeFromUrl(imagePath);
+    if (mediaType === 'video') {
+      return url.toString();
+    }
+
+    // Add transformation parameters for Supabase Storage (画像のみ)
     url.searchParams.set('width', width.toString());
     url.searchParams.set('quality', quality.toString());
     url.searchParams.set('format', 'webp'); // WebPフォーマットを使用（Supabaseが対応している場合）
@@ -76,17 +82,27 @@ export const getImageUrl = (imagePath: string, options: ImageLoaderOptions = {})
   }
 };
 
-// 画像プリロード関数を強化
+// メディアプリロード関数（画像と動画対応）
 export const preloadImage = (src: string): void => {
-  const link = document.createElement('link');
-  link.rel = 'preload';
-  link.as = 'image';
-  link.href = src;
-  document.head.appendChild(link);
+  const mediaType = getMediaTypeFromUrl(src);
   
-  // 実際の画像も事前に読み込み
-  const img = new Image();
-  img.src = src;
+  if (mediaType === 'video') {
+    // 動画の場合はvideo要素でプリロード
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = src;
+  } else {
+    // 画像の場合は従来通り
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = src;
+    document.head.appendChild(link);
+    
+    // 実際の画像も事前に読み込み
+    const img = new Image();
+    img.src = src;
+  }
 };
 
 // 遅延読み込みの設定を最適化
