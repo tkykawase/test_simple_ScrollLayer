@@ -275,7 +275,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                     {imageInfo.mediaType === 'video' && imageInfo.videoUrl ? (
                       <video 
                         src={imageInfo.videoUrl}
-                        poster={imageInfo.thumbnailUrl || getImageUrl(src, { width: 800, quality: 80 })}
+                        poster={imageInfo.thumbnailUrl || undefined}
                         className="w-full h-auto block"
                         controls={false}
                         muted
@@ -293,6 +293,32 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                           const video = e.currentTarget;
                           video.pause();
                           video.currentTime = 0;
+                        }}
+                        onLoadedMetadata={(e) => {
+                          const video = e.currentTarget;
+                          console.log('動画メタデータ読み込み完了:', {
+                            videoWidth: video.videoWidth,
+                            videoHeight: video.videoHeight,
+                            duration: video.duration
+                          });
+                        }}
+                        onCanPlay={(e) => {
+                          const video = e.currentTarget;
+                          console.log('動画再生可能:', {
+                            src: video.src,
+                            poster: video.poster,
+                            currentTime: video.currentTime
+                          });
+                          // 動画の最初のフレームを表示（posterがない場合）
+                          if (!video.poster) {
+                            video.currentTime = 0.1;
+                          }
+                        }}
+                        onError={(e) => {
+                          console.error('動画読み込みエラー:', {
+                            src: e.currentTarget.src,
+                            error: e.currentTarget.error
+                          });
                         }}
                       />
                     ) : (
