@@ -237,6 +237,8 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
               {set.images.map((src, imageIndex) => {
                 // 画像に紐づくプロジェクト情報を取得
                 const project = projects.find(p => p.project_images.some(img => img.image_url === src));
+                const projectImage = project?.project_images?.find(img => img.image_url === src);
+                
                 // 画像ごとに必要な情報をまとめる
                 const imageInfo = {
                   imageUrl: src,
@@ -244,8 +246,12 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   title: project?.title ?? '',
                   year: project?.year ?? '',
                   company_name: project?.company_name ?? '',
-                  photographer_name: project?.project_images?.find(img => img.image_url === src)?.photographer_name ?? '',
+                  photographer_name: projectImage?.photographer_name ?? '',
+                  mediaType: projectImage?.media_type ?? 'image',
+                  videoUrl: projectImage?.video_url,
+                  thumbnailUrl: projectImage?.thumbnail_url,
                 };
+                
                 return (
                   <div 
                     key={`${set.id}-${imageIndex}`}
@@ -262,13 +268,40 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                       }
                     }}
                   >
-                    <img 
-                      src={getImageUrl(src, { width: 800, quality: 80 })} 
-                      alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
-                      className="w-full h-auto block"
-                      loading={setIndex === 0 ? "eager" : "lazy"}
-                      onClick={e => e.stopPropagation()}
-                    />
+                    {/* 動画または画像の表示 */}
+                    {imageInfo.mediaType === 'video' && imageInfo.videoUrl ? (
+                      <video 
+                        src={imageInfo.videoUrl}
+                        poster={imageInfo.thumbnailUrl || getImageUrl(src, { width: 800, quality: 80 })}
+                        className="w-full h-auto block"
+                        controls={false}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        onClick={e => e.stopPropagation()}
+                        onMouseEnter={(e) => {
+                          const video = e.currentTarget;
+                          video.play().catch(() => {
+                            // 自動再生が失敗した場合は無視
+                          });
+                        }}
+                        onMouseLeave={(e) => {
+                          const video = e.currentTarget;
+                          video.pause();
+                          video.currentTime = 0;
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={getImageUrl(src, { width: 800, quality: 80 })} 
+                        alt={`Set ${set.setNumber}, Image ${imageIndex + 1}`}
+                        className="w-full h-auto block"
+                        loading={setIndex === 0 ? "eager" : "lazy"}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    )}
+                    
                     {/* オーバーレイ表示をコンポーネント化 */}
                     <ImageOverlay
                       title={imageInfo.title}

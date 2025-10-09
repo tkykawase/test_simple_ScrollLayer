@@ -21,13 +21,15 @@ interface UseFilterControllerProps {
   selectedTags: string[];
   selectedImageTags: string[];
   type: 'project' | 'image';
+  mediaType?: 'all' | 'image' | 'video'; // メディアタイプフィルターを追加
 }
 
 export function useFilterController({
   projects,
   selectedTags,
   selectedImageTags,
-  type
+  type,
+  mediaType = 'all'
 }: UseFilterControllerProps) {
   
   // プロジェクトデータの詳細をログに出力
@@ -135,6 +137,15 @@ export function useFilterController({
           // 基本条件：アクティブステータス
           const isActive = img.status === true;
           
+          // メディアタイプフィルター
+          const mediaTypeMatch = mediaType === 'all' || 
+            (mediaType === 'image' && (img.media_type === 'image' || !img.media_type)) ||
+            (mediaType === 'video' && img.media_type === 'video');
+          
+          if (!mediaTypeMatch) {
+            return false;
+          }
+          
           // Allの場合 (selectedImageTags.length === 0)
           if (selectedImageTags.length === 0) {
             return isActive && img.show_in_home === true;
@@ -162,13 +173,13 @@ export function useFilterController({
     });
 
     return resultImages;
-  }, [projects, selectedImageTags, type]);
+  }, [projects, selectedImageTags, type, mediaType]);
 
   // Memoize the filtered results
   const filteredResults = useMemo(() => ({
     projects: filterProjects(),
     images: getFilteredImages()
-  }), [projects, selectedTags, selectedImageTags, type]);
+  }), [projects, selectedTags, selectedImageTags, type, mediaType]);
 
   return {
     filterProjects: useCallback(() => filteredResults.projects, [filteredResults]),

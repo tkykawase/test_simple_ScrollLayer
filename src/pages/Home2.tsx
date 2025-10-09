@@ -14,7 +14,8 @@ export const Home2: React.FC = () => {
     projects,
     selectedTags: [],        // 追加（imageタイプでは使用しないが必須）
     selectedImageTags,
-    type: 'image'
+    type: 'image',
+    mediaType: 'all'         // 画像と動画の両方を表示
   });
   
   useEffect(() => {
@@ -31,7 +32,7 @@ export const Home2: React.FC = () => {
 
   const filteredImages = useMemo(() => {
     return filterController.getFilteredImages();
-  }, [filterController, selectedImageTags]);
+  }, [filterController]);
 
   const [leftImages, rightImages] = useMemo(() => {
     const midpoint = Math.ceil(filteredImages.length / 2);

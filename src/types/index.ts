@@ -22,6 +22,9 @@ image_url: string;
   caption?: string;
   status: boolean;
   tags?: string[];
+  media_type?: 'image' | 'video'; // メディアタイプを追加
+  video_url?: string; // 動画URL（動画の場合）
+  thumbnail_url?: string; // 動画のサムネイルURL
 }
 
 export interface SwipeItem {
