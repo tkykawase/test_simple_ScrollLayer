@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import type { SetData, SwiperStepsState, SwiperStepsActions } from '../models/swiper-types';
 import { addSetToTopAndRemoveFromBottom, addSetToBottomAndRemoveFromTop } from '../models/swiperSetManager';
-import { getImageUrl } from '../../../lib/image-utils';
+import { getImageUrl, getMediaTypeFromUrl } from '../../../lib/image-utils';
 
 // =============================
 // useSwiperSteps.ts
@@ -56,25 +56,44 @@ export const useSwiperSteps = (side: 'left' | 'right'): [SwiperStepsState, Swipe
       setState(prev => ({ ...prev, imageSet: images }));
       console.log('📦 画像セット作成完了');
       
-      // 画像のプリロード
-      console.log('🔄 画像プリロード開始');
+      // メディアのプリロード（画像と動画を判別）
+      console.log('🔄 メディアプリロード開始');
       await Promise.all(
         images.map((src, index) => {
           return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-              console.log(`✅ 画像${index + 1}: ${src.split('/').pop()}`, {
-                size: `${img.naturalWidth}x${img.naturalHeight}`
-              });
-              resolve(img);
-            };
-            img.onerror = () => reject(new Error(`画像読み込みエラー: ${src}`));
-            img.src = getImageUrl(src, { width: 800, quality: 80 });
+            const mediaType = getMediaTypeFromUrl(src);
+            const fileName = src.split('/').pop() || 'unknown';
+            
+            if (mediaType === 'video') {
+              // 動画の場合はvideo要素でプリロード
+              const video = document.createElement('video');
+              video.onloadedmetadata = () => {
+                console.log(`✅ 動画${index + 1}: ${fileName}`, {
+                  duration: `${video.duration.toFixed(2)}s`,
+                  size: `${video.videoWidth}x${video.videoHeight}`
+                });
+                resolve(video);
+              };
+              video.onerror = () => reject(new Error(`動画読み込みエラー: ${src}`));
+              video.src = getImageUrl(src, { width: 800, quality: 80 });
+              video.preload = 'metadata';
+            } else {
+              // 画像の場合は従来通り
+              const img = new Image();
+              img.onload = () => {
+                console.log(`✅ 画像${index + 1}: ${fileName}`, {
+                  size: `${img.naturalWidth}x${img.naturalHeight}`
+                });
+                resolve(img);
+              };
+              img.onerror = () => reject(new Error(`画像読み込みエラー: ${src}`));
+              img.src = getImageUrl(src, { width: 800, quality: 80 });
+            }
           });
         })
       );
       
-      console.log('✅ Step 1 完了: 全画像プリロード済み');
+      console.log('✅ Step 1 完了: 全メディアプリロード済み');
       setState(prev => ({ 
         ...prev, 
         currentStep: 'step2',
