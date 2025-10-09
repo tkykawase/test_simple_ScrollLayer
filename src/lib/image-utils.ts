@@ -2,6 +2,40 @@
 
 import { ImageLoaderOptions } from '@/types';
 
+// ファイル拡張子からメディアタイプを判別する関数
+export const getMediaTypeFromUrl = (url: string): 'image' | 'video' => {
+  if (!url) return 'image';
+  
+  const extension = url.toLowerCase().split('.').pop();
+  const videoExtensions = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv', 'mkv'];
+  
+  return videoExtensions.includes(extension || '') ? 'video' : 'image';
+};
+
+// 動画URLを取得する関数
+export const getVideoUrl = (videoPath: string): string => {
+  if (!videoPath) return '';
+  
+  // 既に完全なURLの場合はそのまま返す
+  if (videoPath.startsWith('http')) {
+    return videoPath;
+  }
+  
+  // Clean the video path
+  const cleanPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
+  
+  try {
+    const url = new URL(
+      `storage/v1/object/public/images/${cleanPath}`,
+      import.meta.env.VITE_SUPABASE_URL
+    );
+    
+    return url.toString();
+  } catch {
+    return '';
+  }
+};
+
 export const getImageUrl = (imagePath: string, options: ImageLoaderOptions = {}): string => {
   if (!imagePath) return 'https://placehold.co/600x400?text=No+Image';
   

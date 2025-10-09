@@ -1,7 +1,7 @@
 import { useSwiperController } from '../hooks/useSwiperController';
 import { ScrollLayer } from './ScrollLayer';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getImageUrl } from '../../../lib/image-utils';
+import { getImageUrl, getMediaTypeFromUrl, getVideoUrl } from '../../../lib/image-utils';
 import type { Project } from '../../../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -239,6 +239,9 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                 const project = projects.find(p => p.project_images.some(img => img.image_url === src));
                 const projectImage = project?.project_images?.find(img => img.image_url === src);
                 
+                // ファイル拡張子からメディアタイプを判別
+                const detectedMediaType = getMediaTypeFromUrl(src);
+                
                 // 画像ごとに必要な情報をまとめる
                 const imageInfo = {
                   imageUrl: src,
@@ -247,8 +250,8 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   year: project?.year ?? '',
                   company_name: project?.company_name ?? '',
                   photographer_name: projectImage?.photographer_name ?? '',
-                  mediaType: projectImage?.media_type ?? 'image',
-                  videoUrl: projectImage?.video_url,
+                  mediaType: projectImage?.media_type ?? detectedMediaType,
+                  videoUrl: projectImage?.video_url || (detectedMediaType === 'video' ? getVideoUrl(src) : undefined),
                   thumbnailUrl: projectImage?.thumbnail_url,
                 };
                 
