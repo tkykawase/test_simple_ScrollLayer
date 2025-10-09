@@ -255,6 +255,17 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   thumbnailUrl: projectImage?.thumbnail_url,
                 };
                 
+                // デバッグ情報を出力
+                if (detectedMediaType === 'video') {
+                  console.log('動画情報:', {
+                    originalSrc: src,
+                    detectedMediaType,
+                    videoUrl: imageInfo.videoUrl,
+                    projectVideoUrl: projectImage?.video_url,
+                    thumbnailUrl: imageInfo.thumbnailUrl
+                  });
+                }
+                
                 return (
                   <div 
                     key={`${set.id}-${imageIndex}`}
@@ -283,7 +294,17 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                         playsInline
                         autoPlay
                         preload="metadata"
-                        onClick={e => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const video = e.currentTarget;
+                          if (video.paused) {
+                            video.play().catch((error) => {
+                              console.log('手動再生が失敗しました:', error);
+                            });
+                          } else {
+                            video.pause();
+                          }
+                        }}
                         onMouseEnter={(e) => {
                           const video = e.currentTarget;
                           // 既に再生中でない場合のみ再生
@@ -313,15 +334,35 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                           console.log('動画再生可能:', {
                             src: video.src,
                             poster: video.poster,
-                            currentTime: video.currentTime
+                            currentTime: video.currentTime,
+                            readyState: video.readyState
                           });
                           // 動画の最初のフレームを表示（posterがない場合）
                           if (!video.poster) {
                             video.currentTime = 0.1;
                           }
-                          // 自動再生を開始
+                        }}
+                        onLoadedData={(e) => {
+                          const video = e.currentTarget;
+                          console.log('動画データ読み込み完了:', {
+                            src: video.src,
+                            readyState: video.readyState
+                          });
+                          // データ読み込み完了後に自動再生を試行
                           video.play().catch((error) => {
                             console.log('自動再生が失敗しました（ブラウザの制限）:', error);
+                            // ユーザーインタラクション後に再生を試行
+                            const tryPlayOnInteraction = () => {
+                              video.play().then(() => {
+                                console.log('ユーザーインタラクション後に再生開始');
+                                document.removeEventListener('click', tryPlayOnInteraction);
+                                document.removeEventListener('scroll', tryPlayOnInteraction);
+                              }).catch(() => {
+                                // まだ失敗する場合は無視
+                              });
+                            };
+                            document.addEventListener('click', tryPlayOnInteraction, { once: true });
+                            document.addEventListener('scroll', tryPlayOnInteraction, { once: true });
                           });
                         }}
                         onError={(e) => {
