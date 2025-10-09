@@ -262,7 +262,8 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                     detectedMediaType,
                     videoUrl: imageInfo.videoUrl,
                     projectVideoUrl: projectImage?.video_url,
-                    thumbnailUrl: imageInfo.thumbnailUrl
+                    thumbnailUrl: imageInfo.thumbnailUrl,
+                    generatedVideoUrl: getVideoUrl(src)
                   });
                 }
                 
@@ -293,7 +294,7 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                         loop
                         playsInline
                         autoPlay
-                        preload="metadata"
+                        preload="auto"
                         onClick={(e) => {
                           e.stopPropagation();
                           const video = e.currentTarget;
@@ -346,30 +347,41 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                           const video = e.currentTarget;
                           console.log('動画データ読み込み完了:', {
                             src: video.src,
-                            readyState: video.readyState
+                            readyState: video.readyState,
+                            networkState: video.networkState,
+                            error: video.error
                           });
-                          // データ読み込み完了後に自動再生を試行
-                          video.play().catch((error) => {
-                            console.log('自動再生が失敗しました（ブラウザの制限）:', error);
-                            // ユーザーインタラクション後に再生を試行
-                            const tryPlayOnInteraction = () => {
-                              video.play().then(() => {
-                                console.log('ユーザーインタラクション後に再生開始');
-                                document.removeEventListener('click', tryPlayOnInteraction);
-                                document.removeEventListener('scroll', tryPlayOnInteraction);
-                              }).catch(() => {
-                                // まだ失敗する場合は無視
-                              });
-                            };
-                            document.addEventListener('click', tryPlayOnInteraction, { once: true });
-                            document.addEventListener('scroll', tryPlayOnInteraction, { once: true });
-                          });
+                          
+                          // エラーがない場合のみ再生を試行
+                          if (!video.error && video.readyState >= 2) {
+                            video.play().catch((error) => {
+                              console.log('自動再生が失敗しました（ブラウザの制限）:', error);
+                            });
+                          } else {
+                            console.log('動画にエラーがあります:', video.error);
+                          }
                         }}
                         onError={(e) => {
                           console.error('動画読み込みエラー:', {
                             src: e.currentTarget.src,
-                            error: e.currentTarget.error
+                            error: e.currentTarget.error,
+                            networkState: e.currentTarget.networkState,
+                            readyState: e.currentTarget.readyState
                           });
+                        }}
+                        onLoadStart={(e) => {
+                          console.log('動画読み込み開始:', e.currentTarget.src);
+                        }}
+                        onProgress={(e) => {
+                          const video = e.currentTarget;
+                          if (video.buffered.length > 0) {
+                            const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                            const duration = video.duration;
+                            if (duration > 0) {
+                              const percent = (bufferedEnd / duration) * 100;
+                              console.log(`動画読み込み進捗: ${percent.toFixed(1)}%`);
+                            }
+                          }
                         }}
                       />
                     ) : (
