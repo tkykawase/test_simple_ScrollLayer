@@ -283,105 +283,42 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                       }
                     }}
                   >
-                    {/* 動画または画像の表示 */}
                     {imageInfo.mediaType === 'video' && imageInfo.videoUrl ? (
                       <video 
                         src={imageInfo.videoUrl}
                         poster={imageInfo.thumbnailUrl || undefined}
                         className="w-full h-auto block"
-                        controls={false}
                         muted
                         loop
-                        playsInline
                         autoPlay
+                        playsInline
                         preload="auto"
+                        controls={false}
                         onClick={(e) => {
-                          e.stopPropagation();
+                          e.stopPropagation(); // 🔥 重要: 親のonClickを阻止
                           const video = e.currentTarget;
                           if (video.paused) {
-                            video.play().catch((error) => {
-                              console.log('手動再生が失敗しました:', error);
+                            video.play().catch(err => {
+                              console.log('再生失敗:', err);
                             });
                           } else {
                             video.pause();
-                          }
-                        }}
-                        onMouseEnter={(e) => {
-                          const video = e.currentTarget;
-                          // 既に再生中でない場合のみ再生
-                          if (video.paused) {
-                            video.play().catch(() => {
-                              // 自動再生が失敗した場合は無視
-                            });
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          const video = e.currentTarget;
-                          // ホバー終了時は一時停止のみ（リセットしない）
-                          if (!video.paused) {
-                            video.pause();
-                          }
-                        }}
-                        onLoadedMetadata={(e) => {
-                          const video = e.currentTarget;
-                          console.log('動画メタデータ読み込み完了:', {
-                            videoWidth: video.videoWidth,
-                            videoHeight: video.videoHeight,
-                            duration: video.duration
-                          });
-                        }}
-                        onCanPlay={(e) => {
-                          const video = e.currentTarget;
-                          console.log('動画再生可能:', {
-                            src: video.src,
-                            poster: video.poster,
-                            currentTime: video.currentTime,
-                            readyState: video.readyState
-                          });
-                          // 動画の最初のフレームを表示（posterがない場合）
-                          if (!video.poster) {
-                            video.currentTime = 0.1;
                           }
                         }}
                         onLoadedData={(e) => {
+                          // 🔥 onCanPlayの代わりにonLoadedDataを使用（より確実）
                           const video = e.currentTarget;
-                          console.log('動画データ読み込み完了:', {
-                            src: video.src,
-                            readyState: video.readyState,
-                            networkState: video.networkState,
-                            error: video.error
-                          });
-                          
-                          // エラーがない場合のみ再生を試行
-                          if (!video.error && video.readyState >= 2) {
-                            video.play().catch((error) => {
-                              console.log('自動再生が失敗しました（ブラウザの制限）:', error);
+                          if (video.paused && video.readyState >= 3) {
+                            video.play().catch(() => {
+                              // ブラウザポリシーで失敗した場合は無視
                             });
-                          } else {
-                            console.log('動画にエラーがあります:', video.error);
                           }
                         }}
                         onError={(e) => {
                           console.error('動画読み込みエラー:', {
                             src: e.currentTarget.src,
-                            error: e.currentTarget.error,
-                            networkState: e.currentTarget.networkState,
-                            readyState: e.currentTarget.readyState
+                            error: e.currentTarget.error
                           });
-                        }}
-                        onLoadStart={(e) => {
-                          console.log('動画読み込み開始:', e.currentTarget.src);
-                        }}
-                        onProgress={(e) => {
-                          const video = e.currentTarget;
-                          if (video.buffered.length > 0) {
-                            const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-                            const duration = video.duration;
-                            if (duration > 0) {
-                              const percent = (bufferedEnd / duration) * 100;
-                              console.log(`動画読み込み進捗: ${percent.toFixed(1)}%`);
-                            }
-                          }
                         }}
                       />
                     ) : (

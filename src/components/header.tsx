@@ -24,12 +24,6 @@ export function Header() {
         </Link>
         <div className="flex items-center">
           <Link
-            to="/works"
-            className="text-sm text-white mr-4"
-          >
-            Works
-          </Link>
-          <Link
             to="/about"
             className="text-sm text-white"
           >
