@@ -285,7 +285,6 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                   >
                     {imageInfo.mediaType === 'video' && imageInfo.videoUrl ? (
                       <video 
-                        src={imageInfo.videoUrl}
                         poster={imageInfo.thumbnailUrl || undefined}
                         className="w-full h-auto block"
                         muted
@@ -320,7 +319,16 @@ export const OneSimpleSwiper: React.FC<OneSimpleSwiperProps> = ({ images, setCou
                             error: e.currentTarget.error
                           });
                         }}
-                      />
+                      >
+                        {/* ファイル拡張子に基づいて適切なtype属性を設定 */}
+                        {imageInfo.videoUrl.toLowerCase().endsWith('.webm') ? (
+                          <source src={imageInfo.videoUrl} type="video/webm" />
+                        ) : imageInfo.videoUrl.toLowerCase().endsWith('.mp4') ? (
+                          <source src={imageInfo.videoUrl} type="video/mp4" />
+                        ) : (
+                          <source src={imageInfo.videoUrl} />
+                        )}
+                      </video>
                     ) : (
                       <img 
                         src={getImageUrl(src, { width: 800, quality: 80 })} 
