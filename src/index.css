@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom fonts */
+@font-face {
+  font-family: "univers";
+  src: url("/fonts/UNIVERSLTSTD.OTF") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "KoburinaGothic";
+  src: url("/fonts/こぶりなゴシック Std W1.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "KoburinaGothic";
+  src: url("/fonts/こぶりなゴシック Std W3.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "KoburinaGothic";
+  src: url("/fonts/こぶりなゴシック Std W6.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -66,20 +99,20 @@
   body {
     @apply no-scrollbar;
     @apply bg-background text-foreground;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "univers", "KoburinaGothic", "Helvetica Neue", Helvetica, Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
     font-kerning: normal;
     letter-spacing: 0.04em;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "univers", "KoburinaGothic", "Helvetica Neue", Helvetica, Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
     line-height: 125%;
     font-kerning: normal;
     letter-spacing: 0.04em;
   }
 
   p, li, div {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "univers", "KoburinaGothic", "Helvetica Neue", Helvetica, Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
     line-height: 150%;
     font-kerning: normal;
     letter-spacing: 0.04em;

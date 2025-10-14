@@ -17,6 +17,9 @@ safelist: [
 ],
   theme: {
     extend: {
+      fontFamily: {
+        brand: ["univers", "KoburinaGothic", "Helvetica Neue", "Helvetica", "Arial", "Hiragino Kaku Gothic ProN", "Meiryo", "sans-serif"],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

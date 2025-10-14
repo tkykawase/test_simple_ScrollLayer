@@ -15,12 +15,12 @@ export function AboutPage() {
         <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-4 md:gap-6">
         <GridItem colSpan={{ default: 4, md: 4, lg: 7 }} className="mb-8 md:mb-0">
             <motion.div>
-              <h1 className="text-xl sm:text-2xl font-medium break-words leading-relaxed">
+              <h1 className="font-brand text-xl sm:text-2xl font-medium break-words leading-relaxed">
                 Takuya Kawase
               </h1>
             </motion.div>
             <motion.div>
-              <h1 className="text-xl sm:text-2xl font-medium break-words leading-relaxed">
+              <h1 className="font-brand text-xl sm:text-2xl font-medium break-words leading-relaxed">
                 Graphic designer based in Osaka, Japan. Japanese calligraphy, visual communication, graphic design, branding, web design, UI/UX, flyers, posters, video editing, and illustration.
               </h1>
             </motion.div>

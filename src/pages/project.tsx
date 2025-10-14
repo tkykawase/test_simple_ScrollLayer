@@ -108,7 +108,7 @@ export function ProjectPage() {
                 transition={{ delay: 0.2 }}
                 className="sticky top-24"
               >
-                <h1 className="text-2xl sm:text-3xl font-medium mb-4 break-words">
+                <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-4 break-words">
                   {project.title}
                 </h1>
                 {project.description && (
