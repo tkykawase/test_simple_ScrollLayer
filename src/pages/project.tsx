@@ -12,73 +12,71 @@ import type { Project } from "../types";
 const logger = getLogger('ProjectPage');
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function VideoWithFirstFramePoster({
+function AutoPlayOnViewVideo({
   src,
-  initialPoster,
   className,
   controls = true,
   preload = 'metadata',
   onError,
 }: {
   src: string;
-  initialPoster?: string;
   className?: string;
   controls?: boolean;
   preload?: 'auto' | 'metadata' | 'none' | string;
   onError?: (e: React.SyntheticEvent<HTMLVideoElement, Event>) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [posterUrl, setPosterUrl] = useState<string | undefined>(initialPoster);
 
   useEffect(() => {
-    let revokedUrl: string | null = null;
     const videoEl = videoRef.current;
     if (!videoEl) return;
 
-    const handleLoaded = () => {
-      // 既にポスターがある場合は何もしない
-      if (posterUrl) return;
-      try {
-        // CORS 対応: crossOrigin が有効である必要あり
-        const width = videoEl.videoWidth;
-        const height = videoEl.videoHeight;
-        if (!width || !height) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(videoEl, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (!blob) return;
-          const objectUrl = URL.createObjectURL(blob);
-          revokedUrl = objectUrl;
-          setPosterUrl(objectUrl);
-        }, 'image/jpeg', 0.85);
-      } catch (err) {
-        // CORS 制約等で失敗した場合は静かにフォールバック
-        logger.warn('Failed to capture first frame thumbnail', err as Error);
-      }
+    let isUserPaused = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!videoEl) return;
+        if (entry.isIntersecting && entry.intersectionRatio > 0.35) {
+          if (!isUserPaused) {
+            videoEl.play().catch(() => {});
+          }
+        } else {
+          videoEl.pause();
+        }
+      },
+      { threshold: [0, 0.35, 0.6, 1] }
+    );
+
+    const onPlayByUser = () => {
+      isUserPaused = false;
+    };
+    const onPauseByUser = () => {
+      // ユーザーが明示停止したらスクロールで勝手に再生しない
+      isUserPaused = true;
     };
 
-    // メタデータ/フレームが読めたらキャプチャ
-    videoEl.addEventListener('loadeddata', handleLoaded, { once: true });
+    observer.observe(videoEl);
+    videoEl.addEventListener('play', onPlayByUser);
+    videoEl.addEventListener('pause', onPauseByUser);
 
     return () => {
-      videoEl.removeEventListener('loadeddata', handleLoaded);
-      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+      observer.disconnect();
+      videoEl.removeEventListener('play', onPlayByUser);
+      videoEl.removeEventListener('pause', onPauseByUser);
     };
-  }, [posterUrl, src]);
+  }, [src]);
 
   return (
     <video
       ref={videoRef}
       src={src}
-      poster={posterUrl}
       className={className}
       controls={controls}
       preload={preload}
       crossOrigin="anonymous"
+      muted
+      playsInline
       onError={onError}
     />
   );
@@ -180,12 +178,12 @@ export function ProjectPage() {
                 transition={{ delay: 0.2 }}
                 className="sticky top-24"
               >
-                <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-4 break-words whitespace-pre-line">
+                <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-0 break-words whitespace-pre-line">
                   {project.title}
                 </h1>
-                <div className="mt-8 flex items-start gap-3 text-muted-foreground">
-                  <p className="text-xs leading-relaxed text-justify whitespace-pre-line">Year</p>
-                  <p className="text-xs leading-relaxed text-justify whitespace-pre-line">{project.year}</p>
+                <div className="mt-1 flex items-baseline gap-2 text-muted-foreground">
+                  <p className="text-xs leading-relaxed whitespace-pre-line">Year</p>
+                  <p className="text-xs leading-relaxed whitespace-pre-line">{project.year}</p>
                 </div>
                 {project.description && (
                   <div className="prose prose-lg max-w-none mt-6">
@@ -209,9 +207,8 @@ export function ProjectPage() {
                     const videoUrl = mainImage.video_url || (mediaType === 'video' ? getVideoUrl(mainImage.image_url) : undefined);
                     
                     return mediaType === 'video' && videoUrl ? (
-                      <VideoWithFirstFramePoster
+                      <AutoPlayOnViewVideo
                         src={videoUrl}
-                        initialPoster={mainImage.thumbnail_url || getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
                         className="w-full h-auto"
                         preload="metadata"
                         onError={(e) => {
@@ -252,9 +249,8 @@ export function ProjectPage() {
                       const videoUrl = image.video_url || (mediaType === 'video' ? getVideoUrl(image.image_url) : undefined);
                       
                       return mediaType === 'video' && videoUrl ? (
-                        <VideoWithFirstFramePoster
+                        <AutoPlayOnViewVideo
                           src={videoUrl}
-                          initialPoster={image.thumbnail_url || getImageUrl(image.image_url, { width: 1600, quality: 85 })}
                           className="w-full h-auto"
                           preload="metadata"
                           onError={(e) => {
