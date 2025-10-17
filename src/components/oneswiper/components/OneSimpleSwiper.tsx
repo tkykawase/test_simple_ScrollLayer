@@ -24,13 +24,13 @@ const ImageOverlay: React.FC<ImageOverlayProps> = ({ title, year, company_name, 
   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
     <div className="absolute inset-0 flex flex-col justify-end p-4">
       <div className="text-white">
-        <h3 className="text-lg font-medium">{title}</h3>
-        <p className="text-sm text-white/80">{year}</p>
+        <h3 className="text-lg font-medium whitespace-pre-line">{title}</h3>
+        <p className="text-sm text-white/80 whitespace-pre-line">{year}</p>
         {company_name && (
-          <p className="text-xs text-white/60">{company_name}</p>
+          <p className="text-xs text-white/60 whitespace-pre-line">{company_name}</p>
         )}
         {photographer_name && (
-          <p className="text-xs text-white/60">Photo: {photographer_name}</p>
+          <p className="text-xs text-white/60 whitespace-pre-line">Photo: {photographer_name}</p>
         )}
       </div>
     </div>

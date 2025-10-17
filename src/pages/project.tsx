@@ -108,16 +108,9 @@ export function ProjectPage() {
                 transition={{ delay: 0.2 }}
                 className="sticky top-24"
               >
-                <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-4 break-words">
+                <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-4 break-words whitespace-pre-line">
                   {project.title}
                 </h1>
-                {project.description && (
-                  <div className="prose prose-lg max-w-none">
-                    <p className="text-xs leading-relaxed text-justify whitespace-pre-line">
-                      {project.description}
-                    </p>
-                  </div>
-                )}
                 <div className="mt-8 flex gap-8 text-sm text-muted-foreground">
                   <div>
                     <div className="font-medium text-foreground mb-1">Year</div>
@@ -165,7 +158,7 @@ export function ProjectPage() {
                     );
                   })()}
                   {mainImage.caption && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground whitespace-pre-line">
                       {mainImage.caption}
                     </p>
                   )}
@@ -209,12 +202,19 @@ export function ProjectPage() {
                       );
                     })()}
                     {image.caption && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">
                         {image.caption}
                       </p>
                     )}
                   </motion.div>
                 ))}
+                {project.description && (
+                  <div className="prose prose-lg max-w-none mt-6">
+                    <p className="text-xs leading-relaxed text-justify whitespace-pre-line">
+                      {project.description}
+                    </p>
+                  </div>
+                )}
               </div>
             </GridItem>
           </GridRow>
