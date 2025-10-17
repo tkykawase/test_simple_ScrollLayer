@@ -113,7 +113,7 @@ export function ProjectPage() {
                 </h1>
                 {project.description && (
                   <div className="prose prose-lg max-w-none">
-                    <p className="text-xs leading-relaxed text-justify">
+                    <p className="text-xs leading-relaxed text-justify whitespace-pre-line">
                       {project.description}
                     </p>
                   </div>
