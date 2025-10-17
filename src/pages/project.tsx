@@ -117,6 +117,13 @@ export function ProjectPage() {
                     <div>{project.year}</div>
                   </div>
                 </div>
+                {project.description && (
+                  <div className="prose prose-lg max-w-none mt-6">
+                    <p className="text-xs leading-relaxed text-justify whitespace-pre-line">
+                      {project.description}
+                    </p>
+                  </div>
+                )}
               </motion.div>
             </GridItem>
             <GridItem colSpan={{ default: 4, md: 5, lg: 7 }}>
@@ -208,13 +215,6 @@ export function ProjectPage() {
                     )}
                   </motion.div>
                 ))}
-                {project.description && (
-                  <div className="prose prose-lg max-w-none mt-6">
-                    <p className="text-xs leading-relaxed text-justify whitespace-pre-line">
-                      {project.description}
-                    </p>
-                  </div>
-                )}
               </div>
             </GridItem>
           </GridRow>
