@@ -107,6 +107,7 @@ export function ProjectPage() {
               image_url,
               is_thumbnail,
               show_in_home,
+              show_in_project,
               in_project_order,
               photographer_name,
               caption,
@@ -118,6 +119,7 @@ export function ProjectPage() {
           `)
           .eq('id', id)
           .eq('project_images.status', true)
+          .eq('project_images.show_in_project', true)
           .single();
         if (error) throw error;
         const sortedImages = [...data.project_images].sort((a, b) => 
