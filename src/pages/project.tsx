@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
@@ -11,6 +11,78 @@ import type { Project } from "../types";
 
 const logger = getLogger('ProjectPage');
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function VideoWithFirstFramePoster({
+  src,
+  initialPoster,
+  className,
+  controls = true,
+  preload = 'metadata',
+  onError,
+}: {
+  src: string;
+  initialPoster?: string;
+  className?: string;
+  controls?: boolean;
+  preload?: 'auto' | 'metadata' | 'none' | string;
+  onError?: (e: React.SyntheticEvent<HTMLVideoElement, Event>) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | undefined>(initialPoster);
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    const handleLoaded = () => {
+      // 既にポスターがある場合は何もしない
+      if (posterUrl) return;
+      try {
+        // CORS 対応: crossOrigin が有効である必要あり
+        const width = videoEl.videoWidth;
+        const height = videoEl.videoHeight;
+        if (!width || !height) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(videoEl, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const objectUrl = URL.createObjectURL(blob);
+          revokedUrl = objectUrl;
+          setPosterUrl(objectUrl);
+        }, 'image/jpeg', 0.85);
+      } catch (err) {
+        // CORS 制約等で失敗した場合は静かにフォールバック
+        logger.warn('Failed to capture first frame thumbnail', err as Error);
+      }
+    };
+
+    // メタデータ/フレームが読めたらキャプチャ
+    videoEl.addEventListener('loadeddata', handleLoaded, { once: true });
+
+    return () => {
+      videoEl.removeEventListener('loadeddata', handleLoaded);
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [posterUrl, src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={posterUrl}
+      className={className}
+      controls={controls}
+      preload={preload}
+      crossOrigin="anonymous"
+      onError={onError}
+    />
+  );
+}
 
 export function ProjectPage() {
   const { id } = useParams();
@@ -137,11 +209,10 @@ export function ProjectPage() {
                     const videoUrl = mainImage.video_url || (mediaType === 'video' ? getVideoUrl(mainImage.image_url) : undefined);
                     
                     return mediaType === 'video' && videoUrl ? (
-                      <video
+                      <VideoWithFirstFramePoster
                         src={videoUrl}
-                        poster={mainImage.thumbnail_url || getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
+                        initialPoster={mainImage.thumbnail_url || getImageUrl(mainImage.image_url, { width: 1600, quality: 85 })}
                         className="w-full h-auto"
-                        controls
                         preload="metadata"
                         onError={(e) => {
                           logger.error('Video failed to load:', { url: videoUrl });
@@ -181,11 +252,10 @@ export function ProjectPage() {
                       const videoUrl = image.video_url || (mediaType === 'video' ? getVideoUrl(image.image_url) : undefined);
                       
                       return mediaType === 'video' && videoUrl ? (
-                        <video
+                        <VideoWithFirstFramePoster
                           src={videoUrl}
-                          poster={image.thumbnail_url || getImageUrl(image.image_url, { width: 1600, quality: 85 })}
+                          initialPoster={image.thumbnail_url || getImageUrl(image.image_url, { width: 1600, quality: 85 })}
                           className="w-full h-auto"
-                          controls
                           preload="metadata"
                           onError={(e) => {
                             logger.error('Video failed to load:', { url: videoUrl });
