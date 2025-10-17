@@ -111,11 +111,9 @@ export function ProjectPage() {
                 <h1 className="font-brand text-2xl sm:text-3xl font-medium mb-4 break-words whitespace-pre-line">
                   {project.title}
                 </h1>
-                <div className="mt-8 flex gap-8 text-sm text-muted-foreground">
-                  <div>
-                    <div className="font-medium text-foreground mb-1">Year</div>
-                    <div>{project.year}</div>
-                  </div>
+                <div className="mt-8 flex items-start gap-3 text-muted-foreground">
+                  <p className="text-xs leading-relaxed text-justify whitespace-pre-line">Year</p>
+                  <p className="text-xs leading-relaxed text-justify whitespace-pre-line">{project.year}</p>
                 </div>
                 {project.description && (
                   <div className="prose prose-lg max-w-none mt-6">
